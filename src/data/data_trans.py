@@ -30,20 +30,20 @@ class DataTrans:
         df = df[df['qty'] > 0]
 
         # remove outliers
-        # codes = df['HTS'].unique()
-        # theshold = 2
-        # for code in codes:
-        #     df_code = df[df['HTS'] == code]
-        #     df_code = df_code[['HTS', 'value', 'qty']]
+        codes = df['HTS'].unique()
+        theshold = 2
+        for code in codes:
+            df_code = df[df['HTS'] == code]
+            df_code = df_code[['HTS', 'value', 'qty']]
 
-        #     # remove outliers
-        #     score_value = zscore(df_code['value'])
-        #     score_qty = zscore(df_code['qty'])
-        #     df_code_value = score_value[score_value > theshold]
-        #     df_code_qty = score_qty[score_qty > theshold]
-        #     df_code = pd.concat([df_code_value, df_code_qty], axis=1)
-        #     df_code = df_code.drop_duplicates()
-        #     df.drop(df_code.index, inplace=True)
+            # remove outliers
+            score_value = zscore(df_code['value'])
+            score_qty = zscore(df_code['qty'])
+            df_code_value = score_value[score_value > theshold]
+            df_code_qty = score_qty[score_qty > theshold]
+            df_code = pd.concat([df_code_value, df_code_qty], axis=1)
+            df_code = df_code.drop_duplicates()
+            df.drop(df_code.index, inplace=True)
         df.reset_index()
 
         # save checkpoints
