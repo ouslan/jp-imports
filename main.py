@@ -3,7 +3,7 @@ from src.data.data_clean import DataCleaner
 
 def main(data_path, save_path1, save_path2):
     Download().download_data()
-    #DataCleaner().country_trade(data_path, save_path1)
+    DataCleaner().country_trade(data_path, save_path1)
     DataCleaner().hts_trade(data_path, save_path2)
 
 

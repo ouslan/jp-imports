@@ -2,7 +2,7 @@ from dash import Dash, dash_table
 from pandas.tseries.offsets import DateOffset
 import pandas as pd
 
-imports = pd.read_pickle('imports_data.pkl')
+imports = pd.read_csv('data/processed/hts_data.csv')
 df = imports[imports['date'] == imports['date'].max()].copy().reset_index(drop=True)
 df['Rank'] = df['value_growth %'].rank(ascending=False)
 df = df[['Rank', 'HTS_desc', 'date', 'value_growth %']]
