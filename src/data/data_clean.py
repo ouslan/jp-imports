@@ -40,31 +40,39 @@ class DataCleaner:
         # save the panel data
         country_trade.to_csv(saving_path)
 
-    def hts_trade(self, imports, exports, saving_path, debug=False):
-        df_imports = imports.copy()
-        df_exports = exports.copy()
+    def hts_trade(self, data_path, saving_path, debug=False):
+        
+        df = pd.read_csv(data_path, low_memory=False)
+        df["date"] = pd.to_datetime(df["Year"].astype(str) + "-" + df["Month"].astype(str))
+
+        df_imports = df[df["Trade"] == "i"].copy().reset_index(drop=True)
+        df_imports = df_imports[["Commodity_Code", "date", "data"]]
+        df_imports = df_imports.groupby(['Commodity_Code', 'date']).sum().reset_index()
         df_imports.rename(columns={"data": "imports"}, inplace=True)
+
+        df_exports = df[df["Trade"] == "e"].copy().reset_index(drop=True)
+        df_exports = df_exports[["Commodity_Code", "date", "data"]]
+        df_exports = df_exports.groupby(['Commodity_Code', 'date']).sum().reset_index()
         df_exports.rename(columns={"data": "exports"}, inplace=True)
 
         # merge dataframes
-        hts_trade = pd.merge(df_exports, df_imports, on=["date", "country"], how="outer")
+        hts_trade = pd.merge(df_exports, df_imports, on=["date", "Commodity_Code"], how="outer")
 
         # make mising to 0 & make net exports
         hts_trade["imports"] = hts_trade["imports"].fillna(0)
         hts_trade["exports"] = hts_trade["exports"].fillna(0)
         hts_trade["net_value"] = hts_trade["exports"] - hts_trade["imports"]
 
-        hts_trade = hts_trade.sort_values(by=["HTS", "date"], ascending=True).reset_index(drop=True)
+        hts_trade = hts_trade.sort_values(by=["Commodity_Code", "date"], ascending=True).reset_index(drop=True)
 
         # Balance the data
-        unique_countries = net_def['country'].unique()
-        all_dates = pd.date_range(start=net_def['date'].min(), end=net_def['date'].max(), freq='MS')
-        idx = pd.MultiIndex.from_product([unique_countries, all_dates], names=['Country', 'date'])
-        net_def = net_def.set_index(['Country', 'date']).reindex(idx, fill_value=0).reset_index()
+        unique_countries = hts_trade['Commodity_Code'].unique()
+        all_dates = pd.date_range(start=hts_trade['date'].min(), end=hts_trade['date'].max(), freq='MS')
+        idx = pd.MultiIndex.from_product([unique_countries, all_dates], names=['Commodity_Code', 'date'])
+        hts_trade = hts_trade.set_index(['Commodity_Code', 'date']).reindex(idx, fill_value=0).reset_index()
         
         # save the panel data
-        net_def.to_pickle(saving_path)
-        return net_def
+        hts_trade.to_csv(saving_path)
 
     def to_trimester(self, df_path, saving_path):
         df = pd.read_pickle(df_path)
