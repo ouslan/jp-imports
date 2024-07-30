@@ -1,0 +1,24 @@
+---
+title: "Developing download"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+from src.data.data_pull import DataPull
+```
+
+```{python}
+DataPull("data/", debug=True)
+```
+
+```{python}
+pull_file("http://www.estadisticas.gobierno.pr/iepr/LinkClick.aspx?fileticket=JVyYmIHqbqc%3d&tabid=284&mid=244930", "test.zip")
+````
