@@ -1,0 +1,54 @@
+---
+title: "Developing download"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+from src.data.data_process import DataProcess
+import polars as pl
+import pandas as pd
+import numpy as np
+```
+
+```{python}
+d = DataProcess(saving_dir="data/", agriculture=False, delete_files=False)
+df = pd.read_parquet("data/processed/imp_exp.parquet")
+```
+
+```{python}
+#df = d.process_data(f"{d.saving_dir}raw/import.csv")
+df
+```
+```{python}
+# make mising to 0 & make net exports
+df2 = df.copy()
+df2[["imports", "qty_imports"]] = df2[["imports", "qty_imports"]].fillna(0)
+df2[["exports", "qty_exports"]] = df2[["exports", "qty_exports"]].fillna(0)
+df2["net_value"] = df2["exports"] - df2["imports"]
+
+df2 = df2.sort_values(by=["HTS", "date"], ascending=True).reset_index(drop=True)
+
+#Balance the data
+# Get unique HTS codes and date range
+unique_countries = df2['HTS'].unique()
+all_dates = pd.date_range(start=df2['date'].min(), end=df2['date'].max(), freq='MS')
+
+# Create a MultiIndex from all combinations of HTS codes and dates
+idx = pd.MultiIndex.from_product([unique_countries, all_dates], names=['HTS', 'date'])
+
+# Set index and reindex the DataFrame to include all combinations
+df2 = df2.set_index(['HTS', 'date']).reindex(idx, fill_value=0).reset_index()
+df2
+```
+
+```{python}
+df2.sort_values(by="net_value")
+
