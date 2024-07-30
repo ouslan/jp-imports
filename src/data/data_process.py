@@ -1,31 +1,55 @@
 from src.data.data_pull import DataPull
 import pandas as pd
 import numpy as np
+import os
 
 class DataProcess(DataPull):
 
-    def __init__(self, saving_dir:str, agriculture:bool, debug:bool=False) -> None:
+    def __init__(self, saving_dir:str, agriculture:bool, delete_files:bool=True, quarterly:bool=True, debug:bool=False) -> None:
         self.saving_dir = saving_dir
         self.agriculture = agriculture
+        self.delete_files = delete_files
+        self.quarterly = quarterly
         self.debug = debug
         super().__init__(self.saving_dir, self.debug)
+        self.process_imp_exp()
     
-    def process_imports(self) -> pd.DataFrame:
-        df = pd.read_csv("data/raw/export.csv", low_memory=False)
+    def process_imp_exp(self):
+        df_imports = self.process_data(f"{self.saving_dir}raw/import.csv", types="imports")
+        df_exports = self.process_data(f"{self.saving_dir}raw/export.csv", types="exports")
+
+        df = pd.merge(df_imports, df_exports, on=['date', 'HTS'], how='outer')
+
+        df = df.drop(columns={"index_x", "index_y"})
+
+        df[["imports", "qty_imports"]] = df[["imports", "qty_imports"]].fillna(0)
+        df[["exports", "qty_exports"]] = df[["exports", "qty_exports"]].fillna(0)
+        df["net_value"] = df["exports"] - df["imports"]
+        df["net_qty"] = df["qty_exports"] - df["qty_imports"]
+
+        df = df.sort_values(by=["HTS", "date"], ascending=True).reset_index(drop=True)
+
+        # Balance the data
+        unique_countries = df['HTS'].unique()
+        all_dates = pd.date_range(start=df['date'].min(), end=df['date'].max(), freq='MS')
+        idx = pd.MultiIndex.from_product([unique_countries, all_dates], names=['HTS', 'date'])
+        df = df.set_index(['HTS', 'date']).reindex(idx, fill_value=0).reset_index()
+        
+        if self.quarterly:
+            df = self.to_quarterly(df)
+        
+        df.to_parquet("data/processed/imp_exp.parquet")
+        
+        if self.delete_files:
+            os.remove(f"{self.saving_dir}raw/import.csv")
+            os.remove(f"{self.saving_dir}raw/export.csv")
+
+    def process_data(self, data_path:str, types:str) -> pd.DataFrame:
+        df = pd.read_csv(data_path, low_memory=False)
 
         df['date'] = pd.to_datetime(df['year'].astype(str) + '-' + df['month'].astype(str))
         df['value'] = df['value'].astype(float)
         df.drop(['year', 'month'], axis=1, inplace=True)
-
-        # save agriculture product
-        if self.agriculture:
-            agr = pd.read_json("data/external/agr_hts.json")
-            agr = agr.reset_index()
-            agr = agr.drop(columns=["index"])
-            agr = agr.rename(columns={0:"HTS"})
-            agr["HTS"] = agr["HTS"].astype(str).str.zfill(4)
-            df = pd.merge(df, agr, on="HTS", how="inner")
-            df = df[~df['HTS'].str.startswith(('05', '06', '14'))].reset_index()
 
         # remove illegal characters and remove invalid values
         df['HTS'] = df['HTS'].astype(str)
@@ -41,35 +65,30 @@ class DataProcess(DataPull):
         df['qty'] = df.apply(self.convertions, axis=1)
         df = df[df['qty'] > 0]
 
-        # checkpoint
-        df_checkpoint = df.copy()
-
         # group by date and HTS collapse
         df = df.groupby(['date', 'HTS'])[['value', 'qty']].sum().reset_index()
         df = df.sort_values(by=['date','HTS']).reset_index()
-        df_labels = df_checkpoint[['HTS', 'HTS_desc']].reset_index()
-        df_labels = df_labels.drop_duplicates(subset=['HTS']).reset_index()
-        df = pd.merge(df, df_labels, on='HTS', how='left')
+        df = df.rename(columns={"value":f"{types}", "qty":f"qty_{types}"})
 
-        # Get growth rate
-        df['value_per_unit'] = df['value'] / df['qty']
-        df['value_rolling'] = df['value_per_unit'].rolling(window=3).mean()
-        df['value_growth %'] = df.groupby(['HTS'])['value_rolling'].pct_change(periods=12, fill_method=None).mul(100)
-        df = df[['date', 'HTS', 'HTS_desc', 'qty', 'value',  'value_per_unit', 'value_rolling', 'value_growth %']].copy()
+        # save agriculture product
+        if self.agriculture:
+            agr = pd.read_json("data/external/agr_hts.json")
+            agr = agr.reset_index()
+            agr = agr.drop(columns=["index"])
+            agr = agr.rename(columns={0:"HTS"})
+            agr["HTS"] = agr["HTS"].astype(str).str.zfill(4)
+            df = pd.merge(df, agr, on="HTS", how="inner")
+            df = df[~df['HTS'].str.startswith(('05', '06', '14'))].reset_index()
 
         return df
 
-    def to_trimester(self, df_path, saving_path):
-        df = pd.read_pickle(df_path)
+    def to_quarterly(self, df:pd.DataFrame) -> pd.DataFrame:
         df["quarter"] = df["date"].dt.to_period("Q-JUN")
-        df["Fiscal Year"] = df["quarter"].dt.qyear
         df_Qyear = df.copy()
-        df_Qyear = df_Qyear.drop(['date', 'quarter'], axis=1)
-        df_Qyear = df_Qyear.groupby(['Country', 'Fiscal Year']).sum().reset_index()
+        df_Qyear = df_Qyear.drop(['date'], axis=1)
+        df_Qyear = df_Qyear.groupby(['HTS', 'quarter']).sum().reset_index()
 
-        # save the panel data
-        df_Qyear.to_pickle(saving_path)
-
+        return df_Qyear
 
     def convertions(self, row) -> float:
             if row['unit_1'] == 'kg':
