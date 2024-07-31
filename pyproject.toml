@@ -31,5 +31,3 @@ Repository = "https://github.com/ouslan/jp-imports"
 [project.scripts]
 
 [project.gui-scripts]
-
-[project.entry-points."spam.magical"]
