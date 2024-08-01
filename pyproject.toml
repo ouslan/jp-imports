@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jp-imports"
+version = "1.0"
+dependencies = [
+    "numpy~=2.0.1",
+    "pandas~=2.2.2",
+    "pyarrow~=17.0.0",
+    "python-dateutil~=2.9.0.post0",
+    "pytz~=2024.1",
+    "six~=1.16.0",
+    "tzdata~=2024.1",
+]
+requires-python = ">=3.8"
+authors = [
+  {name = "Alejandro Ouslan", email = "alejandro.ouslan@upr.edu"},
+]
+maintainers = []
+description = "Import/export data processing for Puerto Rico JP"
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = []
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python"
+]
+
+[project.optional-dependencies]
+
+[project.urls]
+Repository = "https://github.com/ouslan/jp-imports"
+
+[project.scripts]
+
+[project.gui-scripts]
