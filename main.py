@@ -1,7 +1,7 @@
 from src.import_export_tools.data_process import DataProcess
 
 def main() -> None:
-    DataProcess(saving_dir="data/", agriculture=True)
+    DataProcess(saving_dir="data/", agriculture=True, debug=True)
 
 if __name__ == "__main__":
     main()
