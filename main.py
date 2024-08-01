@@ -1,4 +1,4 @@
-from src.data.data_process import DataProcess
+from src.import_export_tools.data_process import DataProcess
 
 def main() -> None:
     DataProcess(saving_dir="data/", agriculture=True, debug=True)
