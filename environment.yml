@@ -1,0 +1,8 @@
+name: jp_imports
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip=24.0 
+  - pandas=2.2.2
+  - pyarrow=17.0.0
