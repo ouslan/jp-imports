@@ -1,0 +1,10 @@
+site_name: Importaciones de Puerto Rico Documentacion
+
+nav:
+  - Home: index.md
+  - About: about.md
+  - Methedology: method.md
+  - Data: data.md
+
+theme:
+  name: 'material'
