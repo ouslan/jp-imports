@@ -12,43 +12,34 @@ os.chdir("..")
 ```
 
 ```{python}
-from src.data.data_process import DataProcess
+from src.import_export_tools.data_process import DataProcess
+from dotenv import load_dotenv
+import requests
 import polars as pl
 import pandas as pd
 import numpy as np
+load_dotenv()
 ```
 
 ```{python}
-d = DataProcess(saving_dir="data/", agriculture=False, delete_files=False)
-df = pd.read_parquet("data/processed/imp_exp.parquet")
+# time series API: https://api.census.gov/data/timeseries.html
+base = 'https://api.census.gov/data/timeseries/'
+flow = 'intltrade/exports/hs'
+param = 'CTY_CODE,CTY_NAME,ALL_VAL_MO'
+
+# date needs manual update from release schedule:
+# https://www.census.gov/foreign-trade/reference/release_schedule.html
+time = '2018-06' 
+
+
 ```
 
 ```{python}
-#df = d.process_data(f"{d.saving_dir}raw/import.csv")
+url = f'{base}{flow}?get={param}&key={key}&time={time}'
+r = requests.get(url).json()
+df = pl.DataFrame(r)
+names = df.select(pl.col("column_0")).transpose()
+df = df.drop("column_0").transpose()
+df = df.rename(names.to_dicts().pop()).with_columns(year=pl.lit(year))
 df
 ```
-```{python}
-# make mising to 0 & make net exports
-df2 = df.copy()
-df2[["imports", "qty_imports"]] = df2[["imports", "qty_imports"]].fillna(0)
-df2[["exports", "qty_exports"]] = df2[["exports", "qty_exports"]].fillna(0)
-df2["net_value"] = df2["exports"] - df2["imports"]
-
-df2 = df2.sort_values(by=["HTS", "date"], ascending=True).reset_index(drop=True)
-
-#Balance the data
-# Get unique HTS codes and date range
-unique_countries = df2['HTS'].unique()
-all_dates = pd.date_range(start=df2['date'].min(), end=df2['date'].max(), freq='MS')
-
-# Create a MultiIndex from all combinations of HTS codes and dates
-idx = pd.MultiIndex.from_product([unique_countries, all_dates], names=['HTS', 'date'])
-
-# Set index and reindex the DataFrame to include all combinations
-df2 = df2.set_index(['HTS', 'date']).reindex(idx, fill_value=0).reset_index()
-df2
-```
-
-```{python}
-df2.sort_values(by="net_value")
-
