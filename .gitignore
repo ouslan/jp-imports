@@ -167,3 +167,7 @@ data/*
 
 # vscode
 .vscode
+
+# ignore qmd stuff
+/notebooks/*
+!/notebooks/*.qmd

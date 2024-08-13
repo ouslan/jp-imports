@@ -13,7 +13,7 @@ class DataProcess(DataPull):
         self.debug = debug
         super().__init__(self.saving_dir, self.debug)
         self.process_imp_exp()
-    
+
     def process_imp_exp(self):
         df_imports = self.process_data(f"{self.saving_dir}raw/import.csv", types="imports")
         df_exports = self.process_data(f"{self.saving_dir}raw/export.csv", types="exports")
@@ -34,12 +34,12 @@ class DataProcess(DataPull):
         all_dates = pd.date_range(start=df['date'].min(), end=df['date'].max(), freq='MS')
         idx = pd.MultiIndex.from_product([unique_countries, all_dates], names=['HTS', 'date'])
         df = df.set_index(['HTS', 'date']).reindex(idx, fill_value=0).reset_index()
-        
+
         if self.quarterly:
             df = self.to_quarterly(df)
-        
+
         df.to_parquet("data/processed/imp_exp.parquet")
-        
+
         if self.delete_files:
             os.remove(f"{self.saving_dir}raw/import.csv")
             os.remove(f"{self.saving_dir}raw/export.csv")

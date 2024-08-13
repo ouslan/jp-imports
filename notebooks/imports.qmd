@@ -1,0 +1,25 @@
+---
+title: "Developing download"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+from dotenv import load_dotenv
+import polars as pl
+import pandas as pd
+load_dotenv()
+```
+
+```{python}
+df2 = pl.read_parquet("data/processed/census_import.parquet")
+df = pd.read_parquet("data/processed/imp_exp.parquet")
+df
+```
