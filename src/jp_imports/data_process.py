@@ -6,7 +6,7 @@ from pathlib import Path
 
 class DataProcess(DataPull):
 
-    def __init__(self, saving_dir: str | Path, agriculture: bool, delete_files: bool=True, quarterly: bool=True, debug: bool=False) -> None:
+    def __init__(self, saving_dir: str | Path, agriculture: bool=False, delete_files: bool=True, quarterly: bool=True, debug: bool=False) -> None:
         self.saving_dir = Path(saving_dir)
         self.agriculture = agriculture
         self.delete_files = delete_files
@@ -47,7 +47,7 @@ class DataProcess(DataPull):
             os.remove(import_data_path)
             os.remove(export_data_path)
 
-    def process_data(self, data_path:str | Path, types:str) -> pd.DataFrame:
+    def process_data(self, data_path: str | Path, types: str) -> pd.DataFrame:
         df = pd.read_csv(data_path, low_memory=False)
 
         df['date'] = pd.to_datetime(df['year'].astype(str) + '-' + df['month'].astype(str))
@@ -89,7 +89,7 @@ class DataProcess(DataPull):
 
         return df
 
-    def to_quarterly(self, df:pd.DataFrame) -> pd.DataFrame:
+    def to_quarterly(self, df: pd.DataFrame) -> pd.DataFrame:
         df["quarter"] = df["date"].dt.to_period("Q-JUN")
         df_Qyear = df.copy()
         df_Qyear = df_Qyear.drop(['date'], axis=1)
@@ -97,7 +97,7 @@ class DataProcess(DataPull):
 
         return df_Qyear
 
-    def convertions(self, row) -> float:
+    def convertions(self, row: pd.Series) -> float:
             if row['unit_1'] == 'kg':
                 return row['qty'] * 1
             elif row['unit_1'] == 'l':

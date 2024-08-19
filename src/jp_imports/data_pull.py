@@ -6,7 +6,7 @@ from pathlib import Path
 
 class DataPull:
 
-    def __init__(self, saving_dir:str, debug:bool=False) -> None:
+    def __init__(self, saving_dir: str, debug: bool=False) -> None:
         self.saving_dir = Path(saving_dir)
         self.debug = debug
 
@@ -47,7 +47,7 @@ class DataPull:
             else:
                 continue
 
-    def pull_file(self, url:str, filename:str) -> None:
+    def pull_file(self, url: str, filename: str) -> None:
         if os.path.exists(filename):
             if self.debug:
                 print("\033[0;36mNOTICE: \033[0m" + f"File {filename} already exists, skipping download")
