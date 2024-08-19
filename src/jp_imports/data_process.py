@@ -72,7 +72,11 @@ class DataProcess(DataPull):
 
         # save agriculture product
         if self.agriculture:
-            agr = pd.read_json("data/external/agr_hts.json")
+
+            from importlib import resources
+            agr_hts_json_path = resources.read_text('jp_imports.__assets__.external', 'agr_hts.json')
+
+            agr = pd.read_json(agr_hts_json_path)
             agr = agr.reset_index()
             agr = agr.drop(columns=["index"])
             agr = agr.rename(columns={0:"HTS"})
