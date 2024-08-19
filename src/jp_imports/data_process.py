@@ -1,12 +1,13 @@
-from src.import_export_tools.data_pull import DataPull
+from jp_imports.data_pull import DataPull
 import pandas as pd
 import numpy as np
 import os
+from pathlib import Path
 
 class DataProcess(DataPull):
 
-    def __init__(self, saving_dir:str, agriculture:bool, delete_files:bool=True, quarterly:bool=True, debug:bool=False) -> None:
-        self.saving_dir = saving_dir
+    def __init__(self, saving_dir: str | Path, agriculture: bool, delete_files: bool=True, quarterly: bool=True, debug: bool=False) -> None:
+        self.saving_dir = Path(saving_dir)
         self.agriculture = agriculture
         self.delete_files = delete_files
         self.quarterly = quarterly
@@ -15,8 +16,10 @@ class DataProcess(DataPull):
         self.process_imp_exp()
     
     def process_imp_exp(self):
-        df_imports = self.process_data(f"{self.saving_dir}raw/import.csv", types="imports")
-        df_exports = self.process_data(f"{self.saving_dir}raw/export.csv", types="exports")
+        import_data_path = self.saving_dir / "raw" / "import.csv"
+        export_data_path = self.saving_dir / "raw" / "export.csv"
+        df_imports = self.process_data(import_data_path, types="imports")
+        df_exports = self.process_data(export_data_path, types="exports")
 
         df = pd.merge(df_imports, df_exports, on=['date', 'HTS'], how='outer')
 
@@ -37,14 +40,14 @@ class DataProcess(DataPull):
         
         if self.quarterly:
             df = self.to_quarterly(df)
-        
-        df.to_parquet("data/processed/imp_exp.parquet")
+
+        df.to_parquet(self.saving_dir / "processed" / "imp_exp.parquet")
         
         if self.delete_files:
-            os.remove(f"{self.saving_dir}raw/import.csv")
-            os.remove(f"{self.saving_dir}raw/export.csv")
+            os.remove(import_data_path)
+            os.remove(export_data_path)
 
-    def process_data(self, data_path:str, types:str) -> pd.DataFrame:
+    def process_data(self, data_path:str | Path, types:str) -> pd.DataFrame:
         df = pd.read_csv(data_path, low_memory=False)
 
         df['date'] = pd.to_datetime(df['year'].astype(str) + '-' + df['month'].astype(str))
