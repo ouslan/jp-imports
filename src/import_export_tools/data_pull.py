@@ -67,8 +67,12 @@ class DataPull:
 
     def pull_census(self, end_year:int, start_year:int, exports:bool, state:str, saving_dir:str) -> None:
         empty_df = [
-            pl.Series("time", dtype=pl.Datetime),
+            pl.Series("date", dtype=pl.Datetime),
             pl.Series("census_value", dtype=pl.Int64),
+            pl.Series("comm_level", dtype=pl.String),
+            pl.Series("commodity", dtype=pl.String),
+            pl.Series("country_name", dtype=pl.String),
+            pl.Series("contry_code", dtype=pl.String),
         ]
         census_df = pl.DataFrame(empty_df)
         if not os.path.exists(f"{saving_dir}/raw/census_{type}.parquet"):
@@ -78,10 +82,12 @@ class DataPull:
             if exports:
                 param = 'CTY_CODE,CTY_NAME,ALL_VAL_MO,COMM_LVL,E_COMMODITY'
                 flow = "intltrade/exports/statehs"
+                naming = {"CTY_CODE": "contry_code", "CTY_NAME": "country_name", "ALL_VAL_MO": "census_value", "COMM_LVL": "comm_level", "E_COMMODITY": "commodity"}
                 saving_path = f"{saving_dir}/raw/census_exports.parquet"
             else:
                 param = 'CTY_CODE,CTY_NAME,GEN_VAL_MO,COMM_LVL,I_COMMODITY'
                 flow = "intltrade/imports/statehs"
+                naming = {"CTY_CODE": "contry_code", "CTY_NAME": "country_name", "GEN_VAL_MO": "census_value", "COMM_LVL": "comm_level", "I_COMMODITY": "commodity"}
                 saving_path = f"{saving_dir}/raw/census_imports.parquet"
  
             for year in range(start_year, end_year + 1):
@@ -92,6 +98,11 @@ class DataPull:
                 names = df.select(pl.col("column_0")).transpose()
                 df = df.drop("column_0").transpose()
                 df = df.rename(names.to_dicts().pop())
+                df = df.rename(naming)
+                df = df.with_columns(date=(pl.col("time") + "-01").str.to_datetime("%Y-%m-%d"))
+                df = df.select(pl.col("date", "census_value", "comm_level", "commodity", "country_name", "contry_code"))
+                df = df.with_columns(pl.col("census_value").cast(pl.Int64))
+                census_df = pl.concat([census_df, df], how="vertical")
                 if self.debug:
                     print("\033[0;32mINFO: \033[0m" + f"Downloaded {year} data")
 

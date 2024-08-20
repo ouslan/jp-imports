@@ -21,11 +21,11 @@ load_dotenv()
 ```{python}
 base = 'https://api.census.gov/data/timeseries/'
 key = os.getenv("CENSUS_API_KEY")
-flow = 'intltrade/imports/statehs'
-param = 'CTY_CODE,CTY_NAME,GEN_VAL_MO,COMM_LVL,I_COMMODITY'
-time = '2018-01' 
+flow = 'intltrade/exports/statenaics'
+param = 'CTY_CODE,CTY_NAME,ALL_VAL_MO,COMM_LVL,NAICS'
+time = '2022-12' 
 ```
-
+This api call is the one that equal to the FRED data
 ```{python}
 url = f'{base}{flow}?get={param}&STATE=PR&key={key}&time={time}'
 r = requests.get(url).json()
@@ -33,8 +33,8 @@ df = pl.DataFrame(r)
 names = df.select(pl.col("column_0")).transpose()
 df = df.drop("column_0").transpose()
 df = df.rename(names.to_dicts().pop())
-df = df.filter((pl.col("COMM_LVL") == "HS6") & (pl.col("CTY_NAME") == "TOTAL FOR ALL COUNTRIES"))
-df = df.select(["time", "GEN_VAL_MO"]).rename({"GEN_VAL_MO": "census_value"})
+df = df.filter((pl.col("COMM_LVL") == "NA4") & (pl.col("CTY_NAME") == "TOTAL FOR ALL COUNTRIES"))
+df = df.select(["time", "ALL_VAL_MO"]).rename({"ALL_VAL_MO": "census_value"})
 df = df.with_columns(pl.col("census_value").cast(pl.Int64),
                       (pl.col("time") + "-01").str.to_datetime("%Y-%m-%d").alias("time")
                      )

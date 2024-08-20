@@ -5,11 +5,12 @@ import os
 
 class DataProcess(DataPull):
 
-    def __init__(self, saving_dir:str, agriculture:bool, delete_files:bool=True, quarterly:bool=True, debug:bool=False) -> None:
+    def __init__(self, saving_dir:str, agriculture:bool, delete_files:bool=True, quarterly:bool=True, totals:bool=False, debug:bool=False) -> None:
         self.saving_dir = saving_dir
         self.agriculture = agriculture
         self.delete_files = delete_files
         self.quarterly = quarterly
+        self.totals = totals
         self.debug = debug
         super().__init__(self.saving_dir, self.debug)
         self.process_imp_exp()
