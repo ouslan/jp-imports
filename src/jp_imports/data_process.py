@@ -1,8 +1,9 @@
 from jp_imports.data_pull import DataPull
+from importlib import resources
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import os
-from pathlib import Path
 
 class DataProcess(DataPull):
 
@@ -40,12 +41,12 @@ class DataProcess(DataPull):
         
         if self.quarterly:
             df = self.to_quarterly(df)
-
-        df.to_parquet(self.saving_dir / "processed" / "imp_exp.parquet")
-        
+            
         if self.delete_files:
             os.remove(import_data_path)
             os.remove(export_data_path)
+            
+        df.to_parquet(self.saving_dir / "processed" / "imp_exp.parquet")
 
     def process_data(self, data_path: str | Path, types: str) -> pd.DataFrame:
         df = pd.read_csv(data_path, low_memory=False)
@@ -76,9 +77,7 @@ class DataProcess(DataPull):
         # save agriculture product
         if self.agriculture:
 
-            from importlib import resources
             agr_hts_json_path = resources.read_text('jp_imports.__assets__.external', 'agr_hts.json')
-
             agr = pd.read_json(agr_hts_json_path)
             agr = agr.reset_index()
             agr = agr.drop(columns=["index"])
