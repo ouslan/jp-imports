@@ -1,8 +1,8 @@
 from urllib.request import urlretrieve
 from urllib.error import URLError
+from pathlib import Path
 import zipfile
 import os
-from pathlib import Path
 
 class DataPull:
 
