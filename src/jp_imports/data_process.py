@@ -1,4 +1,6 @@
-from src.import_export_tools.data_pull import DataPull
+from jp_imports.data_pull import DataPull
+from importlib import resources
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import os
@@ -83,7 +85,8 @@ class DataProcess(DataPull):
 
         return df
 
-    def to_quarterly(self, df:pd.DataFrame) -> pd.DataFrame:
+    def to_quarterly(self, df: pd.DataFrame) -> pd.DataFrame:
+
         df["quarter"] = df["date"].dt.to_period("Q-JUN")
         df_Qyear = df.copy()
         df_Qyear = df_Qyear.drop(['date'], axis=1)
@@ -91,7 +94,7 @@ class DataProcess(DataPull):
 
         return df_Qyear
 
-    def convertions(self, row) -> float:
+    def convertions(self, row:pd.Series) -> float:
             if row['unit_1'] == 'kg':
                 return row['qty'] * 1
             elif row['unit_1'] == 'l':
