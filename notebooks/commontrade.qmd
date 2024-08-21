@@ -1,0 +1,31 @@
+---
+title: "Developing download"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+# this is the first title
+
+
+$$ \hat{y} = \alpha + \beta x + \epsilon $$
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+import pandas as pd 
+import comtradeapicall
+```
+
+
+```{python}
+mydf = comtradeapicall.previewFinalData(typeCode='C', freqCode='M', clCode='HS', period='202205',
+                                        reporterCode=None, cmdCode=None, flowCode='M', partnerCode='630',
+                                        partner2Code=None,
+                                        customsCode=None, motCode=None, maxRecords=500, format_output='JSON',
+                                        aggregateBy=None, breakdownMode='classic', countOnly=None, includeDesc=True)
+mydf
+```
