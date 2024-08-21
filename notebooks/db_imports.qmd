@@ -1,0 +1,27 @@
+---
+title: "Developing download"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+import polars as pl
+import pandas as pd
+```
+
+```{python}
+df = pl.read_csv("data/raw/transactions.csv")
+df = df.filter((pl.col("transaction_trade") == "e"))
+df = df.filter(pl.col("transaction_id").str.starts_with("21"))
+df = df.group_by(pl.col("transaction_year")).agg(pl.col("vessel_value").cast(pl.Int64).sum().alias("vessel_value"))
+df.sort("transaction_year")
+```
+
+

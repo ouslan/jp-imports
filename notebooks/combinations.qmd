@@ -1,0 +1,26 @@
+---
+title: "Developing download"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+import polars as pl
+from datetime import datetime
+```
+```{python}
+# main
+df = pl.read_csv("data/raw/ftrade_all_iepr.csv", ignore_errors=True)
+df = df.with_columns((pl.col("Year").cast(pl.String) + "-" + pl.col("Month").cast(pl.String) + "-01").str.to_datetime("%Y-%m-%d").alias("date"))
+df = df.group_by("date", "Trade").agg(pl.sum("data").alias("data"))
+df = df.filter(pl.col("Trade") == "e").drop("Trade")
+df = df.with_columns((pl.col("data")/1000).round(2).cast(pl.Int64).alias("data"))
+df.sort("date")
+```

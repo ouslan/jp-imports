@@ -7,20 +7,19 @@ import os
 
 class DataProcess(DataPull):
 
-    def __init__(self, saving_dir: str | Path, agriculture: bool=False, delete_files: bool=True, quarterly: bool=True, debug: bool=False) -> None:
-        self.saving_dir = Path(saving_dir)
+    def __init__(self, saving_dir:str, agriculture:bool, delete_files:bool=True, quarterly:bool=True, totals:bool=False, debug:bool=False) -> None:
+        self.saving_dir = saving_dir
         self.agriculture = agriculture
         self.delete_files = delete_files
         self.quarterly = quarterly
+        self.totals = totals
         self.debug = debug
         super().__init__(self.saving_dir, self.debug)
         self.process_imp_exp()
-    
+
     def process_imp_exp(self):
-        import_data_path = self.saving_dir / "raw" / "import.csv"
-        export_data_path = self.saving_dir / "raw" / "export.csv"
-        df_imports = self.process_data(import_data_path, types="imports")
-        df_exports = self.process_data(export_data_path, types="exports")
+        df_imports = self.process_data(f"{self.saving_dir}raw/import.csv", types="imports")
+        df_exports = self.process_data(f"{self.saving_dir}raw/export.csv", types="exports")
 
         df = pd.merge(df_imports, df_exports, on=['date', 'HTS'], how='outer')
 
@@ -38,17 +37,17 @@ class DataProcess(DataPull):
         all_dates = pd.date_range(start=df['date'].min(), end=df['date'].max(), freq='MS')
         idx = pd.MultiIndex.from_product([unique_countries, all_dates], names=['HTS', 'date'])
         df = df.set_index(['HTS', 'date']).reindex(idx, fill_value=0).reset_index()
-        
+
         if self.quarterly:
             df = self.to_quarterly(df)
-            
-        if self.delete_files:
-            os.remove(import_data_path)
-            os.remove(export_data_path)
-            
-        df.to_parquet(self.saving_dir / "processed" / "imp_exp.parquet")
 
-    def process_data(self, data_path: str | Path, types: str) -> pd.DataFrame:
+        df.to_parquet("data/processed/imp_exp.parquet")
+
+        if self.delete_files:
+            os.remove(f"{self.saving_dir}raw/import.csv")
+            os.remove(f"{self.saving_dir}raw/export.csv")
+
+    def process_data(self, data_path:str, types:str) -> pd.DataFrame:
         df = pd.read_csv(data_path, low_memory=False)
 
         df['date'] = pd.to_datetime(df['year'].astype(str) + '-' + df['month'].astype(str))
@@ -76,9 +75,7 @@ class DataProcess(DataPull):
 
         # save agriculture product
         if self.agriculture:
-
-            agr_hts_json_path = resources.read_text('jp_imports.__assets__.external', 'agr_hts.json')
-            agr = pd.read_json(agr_hts_json_path)
+            agr = pd.read_json("data/external/agr_hts.json")
             agr = agr.reset_index()
             agr = agr.drop(columns=["index"])
             agr = agr.rename(columns={0:"HTS"})
@@ -89,6 +86,7 @@ class DataProcess(DataPull):
         return df
 
     def to_quarterly(self, df: pd.DataFrame) -> pd.DataFrame:
+
         df["quarter"] = df["date"].dt.to_period("Q-JUN")
         df_Qyear = df.copy()
         df_Qyear = df_Qyear.drop(['date'], axis=1)
@@ -96,7 +94,7 @@ class DataProcess(DataPull):
 
         return df_Qyear
 
-    def convertions(self, row: pd.Series) -> float:
+    def convertions(self, row:pd.Series) -> float:
             if row['unit_1'] == 'kg':
                 return row['qty'] * 1
             elif row['unit_1'] == 'l':
