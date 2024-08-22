@@ -110,7 +110,7 @@ class DataPull:
                 df = pl.DataFrame(r)
                 names = df.select(pl.col("column_0")).transpose()
                 df = df.drop("column_0").transpose()
-                df = df.rename(names.to_dicts().pop())
+                df = df.rename(names.to_dicts().pop()).rename(naming)
                 df = df.with_columns(date=(pl.col("time") + "-01").str.to_datetime("%Y-%m-%d"))
                 df = df.select(pl.col("date", "census_value", "comm_level", "commodity", "country_name", "contry_code"))
                 df = df.with_columns(pl.col("census_value").cast(pl.Int64))
@@ -130,7 +130,6 @@ class DataPull:
             pl.Series("date", dtype=pl.Datetime),
             pl.Series("census_value", dtype=pl.Int64),
             pl.Series("comm_level", dtype=pl.String),
-            pl.Series("naics_desc", dtype=pl.String),
             pl.Series("naics_code", dtype=pl.String),
             pl.Series("country_name", dtype=pl.String),
             pl.Series("contry_code", dtype=pl.String),
@@ -141,13 +140,14 @@ class DataPull:
             key = os.getenv("CENSUS_API_KEY")
 
             if exports:
-                param = 'CTY_CODE,CTY_NAME,ALL_VAL_MO,COMM_LVL,E_NAICS'
-                flow = "intltrade/exports/statenaics"
                 param = 'CTY_CODE,CTY_NAME,ALL_VAL_MO,COMM_LVL,NAICS'
+                flow = "intltrade/exports/statenaics"
+                naming = {"CTY_CODE": "contry_code", "CTY_NAME": "country_name", "ALL_VAL_MO": "census_value", "COMM_LVL": "comm_level", "NAICS": "naics_code"}
                 saving_path = f"{saving_dir}/raw/census_naics_exports.parquet"
             else:
-                param = 'CTY_CODE,CTY_NAME,GEN_VAL_MO,COMM_LVL,I_NAICS'
+                param = 'CTY_CODE,CTY_NAME,GEN_VAL_MO,COMM_LVL,NAICS'
                 flow = "intltrade/imports/statenaics"
+                naming = {"CTY_CODE": "contry_code", "CTY_NAME": "country_name", "GEN_VAL_MO": "census_value", "COMM_LVL": "comm_level", "NAICS": "naics_code"}
                 saving_path = f"{saving_dir}/raw/census_naics_imports.parquet"
 
             for year in range(start_year, end_year + 1):
@@ -157,9 +157,9 @@ class DataPull:
                 df = pl.DataFrame(r)
                 names = df.select(pl.col("column_0")).transpose()
                 df = df.drop("column_0").transpose()
-                df = df.rename(names.to_dicts().pop())
+                df = df.rename(names.to_dicts().pop()).rename(naming)
                 df = df.with_columns(date=(pl.col("time") + "-01").str.to_datetime("%Y-%m-%d"))
-                df = df.select(pl.col("date", "census_value", "comm_level", "naics_desc", "naics_code", "country_name", "contry_code"))
+                df = df.select(pl.col("date", "census_value", "comm_level", "naics_code", "country_name", "contry_code"))
                 df = df.with_columns(pl.col("census_value").cast(pl.Int64))
                 census_df = pl.concat([census_df, df], how="vertical")
 

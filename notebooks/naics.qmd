@@ -1,0 +1,26 @@
+---
+title: "Developing download"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+import polars as pl
+```
+
+
+```{python}
+df = pl.read_parquet("data/raw/census_naics_exports.parquet")
+df = df.filter((pl.col("comm_level") == "NA4") & (pl.col("country_name") == "TOTAL FOR ALL COUNTRIES"))
+df = df.with_columns(pl.when(pl.col("date").dt.year() > 6).then(pl.col("date").dt.year() + 1).otherwise(pl.col("date").dt.year()).alias("fiscal_year"))
+df = df.group_by("fiscal_year").agg(pl.sum("census_value").alias("data"))
+df = df.with_columns((pl.col("data")/1000000).round(2).alias("data"))
+df.sort("fiscal_year")
+```
