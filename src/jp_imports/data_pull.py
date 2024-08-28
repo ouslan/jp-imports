@@ -1,41 +1,53 @@
-from urllib.request import urlretrieve
-from urllib.error import URLError
 from dotenv import load_dotenv
+from tqdm import tqdm
 import polars as pl
 import requests
 import zipfile
+import urllib3
 import os
 
 load_dotenv()
 
 class DataPull:
 
-    def __init__(self, saving_dir:str, state_code:str, hts:bool=False, jp_instance:bool=False, debug:bool=False) -> None:
+    def __init__(self, saving_dir:str, state_code:str, hts:bool=False, instance:str="census", debug:bool=False) -> None:
 
-        if jp_instance and not state_code == "PR":
+        if instance=="instetute" and not state_code == "PR":
             raise ValueError("JP instance must be for Puerto Rico only")
 
         self.saving_dir = saving_dir
         self.state_code = state_code
-        self.jp_instance = jp_instance
+        self.instance = instance
         self.debug = debug
 
-        if hts:
-            self.pull_census_hts(end_year=2023, start_year=2013, exports=True, state="PR", saving_dir=self.saving_dir)
-            self.pull_census_hts(end_year=2023, start_year=2013, exports=False, state="PR", saving_dir=self.saving_dir)
-        else:
-            self.pull_census_naics(end_year=2023, start_year=2013, exports=True, state="PR", saving_dir=self.saving_dir)
-            self.pull_census_naics(end_year=2023, start_year=2013, exports=False, state="PR", saving_dir=self.saving_dir)
-
-    def pull_int_org(self):
-
-        if not os.path.exists(self.saving_dir + "raw/import.csv") and not os.path.exists(self.saving_dir + "raw/export.csv") or not os.path.exists(self.saving_dir + "processed/imp_exp.parquet"):
-            self.pull_file(url="http://www.estadisticas.gobierno.pr/iepr/LinkClick.aspx?fileticket=JVyYmIHqbqc%3d&tabid=284&mid=244930", filename=(self.saving_dir + "raw/tmp.zip"))
+        # Check if the saving directory exists
         if not os.path.exists(self.saving_dir + "raw"):
             os.makedirs(self.saving_dir + "raw")
         if not os.path.exists(self.saving_dir + "processed"):
             os.makedirs(self.saving_dir + "processed")
 
+        match instance:
+            case "jp_instetute":
+                # Suppress SSL warnings
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                self.pull_int_jp()
+            case "instetute":
+                self.pull_int_org()
+            case "census" if hts:
+                self.pull_census_hts(end_year=2023, start_year=2013, exports=True, state=self.state_code, saving_dir=self.saving_dir)
+                self.pull_census_hts(end_year=2023, start_year=2013, exports=False, state=self.state_code, saving_dir=self.saving_dir)
+            case "census" if not hts:
+                self.pull_census_naics(end_year=2023, start_year=2013, exports=True, state=self.state_code, saving_dir=self.saving_dir)
+                self.pull_census_naics(end_year=2023, start_year=2013, exports=False, state=self.state_code, saving_dir=self.saving_dir)
+            case _:
+                raise ValueError("Invalid instance, must be 'jp_instetute', 'instetute', or 'census'")
+
+
+
+    def pull_int_org(self):
+
+        if not os.path.exists(self.saving_dir + "raw/import.csv") and not os.path.exists(self.saving_dir + "raw/export.csv") or not os.path.exists(self.saving_dir + "processed/imp_exp.parquet"):
+            self.pull_file(url="http://www.estadisticas.gobierno.pr/iepr/LinkClick.aspx?fileticket=JVyYmIHqbqc%3d&tabid=284&mid=244930", filename=(self.saving_dir + "raw/tmp.zip"))
             # Extract the zip file
             with zipfile.ZipFile(self.saving_dir + "raw/tmp.zip", "r") as zip_ref:
                 zip_ref.extractall(f"{self.saving_dir}raw/")
@@ -62,21 +74,35 @@ class DataPull:
             if self.debug:
                 print("\033[0;36mNOTICE: \033[0m" + "Import and Export files already exist, skipping download")
 
-    def pull_file(self, url:str, filename:str) -> None:
+    def pull_file(self, url:str, filename:str, verify:bool=True) -> None:
         if os.path.exists(filename):
             if self.debug:
                 print("\033[0;36mNOTICE: \033[0m" + f"File {filename} already exists, skipping download")
         else:
-            try:
-                urlretrieve(url, filename)
-                if self.debug:
-                    print("\033[0;32mINFO: \033[0m" + f"Downloaded {filename}")
-            except URLError:
-                if self.debug:
-                    print("\033[1;33mWARNING:  \033[0m" + f"Could not download {filename}")
+            chunk_size = 10 * 1024 * 1024
+
+            with requests.get(url, stream=True, verify=verify) as response:
+                total_size = int(response.headers.get('content-length', 0))
+
+                with tqdm(total=total_size, unit='B', unit_scale=True, unit_divisor=1024, desc='Downloading') as bar:
+                    with open(filename, 'wb') as file:
+                        for chunk in response.iter_content(chunk_size=chunk_size):
+                            if chunk:
+                                file.write(chunk)
+                                bar.update(len(chunk))  # Update the progress bar with the size of the chunk
 
     def pull_int_jp(self) -> None:
-        pass
+        if not os.path.exists(self.saving_dir + "raw/jp_instance.parquet"):
+            url = "https://datos.estadisticas.pr/dataset/92d740af-97e4-4cb3-a990-2f4d4fa05324/resource/b4d10e3d-0924-498c-9c0d-81f00c958ca6/download/ftrade_all_iepr.csv"
+            self.pull_file(url=url, filename=(self.saving_dir + "raw/jp_instance.csv"), verify=False)
+            jp_df = pl.read_csv(self.saving_dir + "raw/jp_instance.csv", ignore_errors=True)
+            jp_df.write_parquet(self.saving_dir + "raw/jp_instance.parquet")
+            os.remove(self.saving_dir + "raw/jp_instance.csv")
+            if self.debug:
+                print("\033[0;32mINFO: \033[0m" + "Downloaded JP instance data")
+        else:
+            if self.debug:
+                print("\033[0;36mNOTICE: \033[0m" + "JP instance data already exists, skipping download")
 
     def pull_census_hts(self, end_year:int, start_year:int, exports:bool, state:str, saving_dir:str) -> None:
         empty_df = [

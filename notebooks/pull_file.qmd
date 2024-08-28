@@ -1,0 +1,62 @@
+---
+title: "Developing download"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+import requests
+import wget
+import polars as pl
+from tqdm import tqdm
+import urllib3
+
+# Suppress SSL warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+```
+
+```{python}
+def pull_file(url:str, filename:str) -> None:
+  if os.path.exists(filename):
+    if self.debug:
+      print("\033[0;36mNOTICE: \033[0m" + f"File {filename} already exists, skipping download")
+    else:
+      try:
+        urlretrieve(url, filename)
+        if self.debug:
+          print("\033[0;32mINFO: \033[0m" + f"Downloaded {filename}")
+      except URLError:
+        if self.debug:
+           print("\033[1;33mWARNING:  \033[0m" + f"Could not download {filename}")
+```
+
+```{python}
+url = "http://datos.estadisticas.pr/dataset/92d740af-97e4-4cb3-a990-2f4d4fa05324/resource/b4d10e3d-0924-498c-9c0d-81f00c958ca6/download/ftrade_all_iepr.csv"
+
+# Chunk size for downloading (10 MB Chunks)
+chunk_size = 10 * 1024 * 1024
+
+# Stream the request
+with requests.get(url, stream=True, verify=False) as response:
+    # Determine the total file size from the Content-Length header
+    total_size = int(response.headers.get('content-length', 0))
+
+    # Initialize the tqdm progress bar
+    with tqdm(total=total_size, unit='B', unit_scale=True, unit_divisor=1024, desc='Downloading') as bar:
+        # Open file in binary write mode
+        with open('ftrade_all_iepr.csv', 'wb') as file:
+            # Iterate over the content in chunks
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    file.write(chunk)
+                    bar.update(len(chunk))  # Update the progress bar with the size of the chunk
+
+print('Download complete.')
+```

@@ -40,9 +40,4 @@ df = df.group_by("fiscal_year").agg(pl.sum("census_value").alias("data"))
 df.sort("fiscal_year")
 ```
 
-```{python}
-df = pl.read_parquet("data/raw/census_exports.parquet")
-df = df.filter((pl.col("comm_level") == "HS6") & (pl.col("country_name") == "TOTAL FOR ALL COUNTRIES"))
-df = df.group_by("date").agg(pl.sum("census_value").alias("data"))
-df.sort("date")
-```
+
