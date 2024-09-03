@@ -1,6 +1,5 @@
 from jp_imports.data_pull import DataPull
-from importlib import resources
-from pathlib import Path
+import polars as pl
 import pandas as pd
 import numpy as np
 import os
@@ -14,7 +13,7 @@ class DataProcess(DataPull):
         self.quarterly = quarterly
         self.totals = totals
         self.debug = debug
-        super().__init__(self.saving_dir, self.debug)
+        super().__init__(self.saving_dir, debug=self.debug, state_code="PR")
         self.process_imp_exp()
 
     def process_imp_exp(self):
@@ -23,7 +22,7 @@ class DataProcess(DataPull):
 
         df = pd.merge(df_imports, df_exports, on=['date', 'HTS'], how='outer')
 
-        df = df.drop(columns={"index_x", "index_y"})
+        df = df.drop({"index_x", "index_y"})
 
         df[["imports", "qty_imports"]] = df[["imports", "qty_imports"]].fillna(0)
         df[["exports", "qty_exports"]] = df[["exports", "qty_exports"]].fillna(0)
@@ -84,6 +83,14 @@ class DataProcess(DataPull):
             df = df[~df['HTS'].str.startswith(('05', '06', '14'))].reset_index()
 
         return df
+
+    def process_int_jp(self, path:str, time:str) -> pl.DataFrame:
+
+        df = pl.read_parquet(path)
+
+        imports = df.filter(pl.col("Trade") == "i")
+
+        exports = df.filter(pl.col("Trade") == "e")
 
     def to_quarterly(self, df: pd.DataFrame) -> pd.DataFrame:
 
