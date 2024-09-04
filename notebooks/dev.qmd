@@ -18,7 +18,7 @@ import polars as pl
 ```{python}
 df = pl.read_parquet("data/raw/jp_instance.parquet")
 time = "yearly"
-types = "naics"
+types = "hs"
 switch = [time, types]
 
 df = df.with_columns(conv_1=pl.when(pl.col("unit_1").str.to_lowercase() == "kg").then(pl.col("qty_1") * 1)
@@ -65,8 +65,10 @@ match switch:
   case ["yearly", "hs"]:
     imports = df.filter(pl.col("Trade") == "i").group_by("year", "hs").agg(
         pl.sum("data").alias("exports")).sort(["year", "hs"])
+    imports = imports.filter(pl.col("hs").is_not_null())
     exports = df.filter(pl.col("Trade") == "e").group_by("year", "hs").agg(
         pl.sum("data").alias("imports")).sort(["year", "hs"])
+    exports = exports.filter(pl.col("hs").is_not_null())
     print(imports)
 
     df = imports.join(exports, on=["year", "hs"], how="full", validate="1:1")
@@ -167,6 +169,9 @@ match switch:
     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero"))
 
 df2.filter(pl.col("hs").is_null())
-
-
+imports = df2.filter(pl.col("Trade") == "i").group_by("year", "hs").agg(
+  pl.sum("data").alias("exports")).sort(["year", "hs"])
+exports = df2.filter(pl.col("Trade") == "e").group_by("year", "hs").agg(
+  pl.sum("data").alias("imports")).sort(["year", "hs"])
+exports
 ```

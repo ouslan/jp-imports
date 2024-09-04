@@ -15,22 +15,12 @@ os.chdir("..")
 import polars as pl
 from datetime import datetime
 from itertools import combinations 
+from src.jp_imports.data_process import DataProcess
 ```
 
 
 ```{python}
-df = pl.read_parquet("data/raw/census_naics_exports.parquet")
-df = df.filter((pl.col("comm_level") == "NA4") & (pl.col("country_name") == "TOTAL FOR ALL COUNTRIES"))
-df = df.with_columns(pl.when(pl.col("date").dt.year() > 6).then(pl.col("date").dt.year() + 1).otherwise(pl.col("date").dt.year()).alias("fiscal_year"))
-df = df.group_by("fiscal_year").agg(pl.sum("census_value").alias("data"))
-df = df.with_columns((pl.col("data")/1000000).round(2).alias("data"))
-df.sort("fiscal_year")
-```
-
-```{python}
-df = pl.read_parquet("data/raw/census_naics_exports.parquet")
-df1 = df.filter((pl.col("date") == datetime(2023,12,1)))
-df1 = df1.sort("date").with_row_index("id")
-comb = combinations(df1.select("id").to_series().to_list(), 2)
+df = DataProcess(saving_dir="data/raw/")
+df
 
 ```
