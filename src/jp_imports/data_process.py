@@ -1,4 +1,4 @@
-from src.jp_imports.data_pull import DataPull
+from .data_pull import DataPull
 import polars as pl
 import pandas as pd
 import numpy as np
