@@ -1,98 +1,155 @@
-from jp_imports.data_pull import DataPull
-from importlib import resources
-from pathlib import Path
+from src.jp_imports.data_pull import DataPull
+import polars as pl
 import pandas as pd
 import numpy as np
-import os
 
 class DataProcess(DataPull):
 
-    def __init__(self, saving_dir:str, agriculture:bool, delete_files:bool=True, quarterly:bool=True, totals:bool=False, debug:bool=False) -> None:
+    def __init__(self, saving_dir:str, instance:str, state_code:str="PR", debug:bool=False):
         self.saving_dir = saving_dir
-        self.agriculture = agriculture
-        self.delete_files = delete_files
-        self.quarterly = quarterly
-        self.totals = totals
+        self.state_code = state_code
         self.debug = debug
-        super().__init__(self.saving_dir, self.debug)
-        self.process_imp_exp()
+        self.instance = instance
 
-    def process_imp_exp(self):
-        df_imports = self.process_data(f"{self.saving_dir}raw/import.csv", types="imports")
-        df_exports = self.process_data(f"{self.saving_dir}raw/export.csv", types="exports")
+        super().__init__(saving_dir=self.saving_dir, state_code=self.state_code, instance=self.instance, debug=self.debug)
 
-        df = pd.merge(df_imports, df_exports, on=['date', 'HTS'], how='outer')
+    def process_int_jp(self, time:str, types:str) -> pl.DataFrame:
 
-        df = df.drop(columns={"index_x", "index_y"})
+        df = pl.read_parquet(self.saving_dir + "raw/jp_instance.parquet")
+        switch = [time, types]
 
-        df[["imports", "qty_imports"]] = df[["imports", "qty_imports"]].fillna(0)
-        df[["exports", "qty_exports"]] = df[["exports", "qty_exports"]].fillna(0)
-        df["net_value"] = df["exports"] - df["imports"]
-        df["net_qty"] = df["qty_exports"] - df["qty_imports"]
+        df = df.with_columns(conv_1=pl.when(pl.col("unit_1").str.to_lowercase() == "kg").then(pl.col("qty_1") * 1)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "l").then(pl.col("qty_1") * 1)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "doz").then(pl.col("qty_1") / 0.756)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "m3").then(pl.col("qty_1") * 1560)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "t").then(pl.col("qty_1") * 907.185)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "kts").then(pl.col("qty_1") * 1)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "pfl").then(pl.col("qty_1") * 0.789)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "gm").then(pl.col("qty_1") * 1000).otherwise(None),
 
-        df = df.sort_values(by=["HTS", "date"], ascending=True).reset_index(drop=True)
+                            conv_2=pl.when(pl.col("unit_2").str.to_lowercase() == "kg").then(pl.col("qty_2") * 1)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "l").then(pl.col("qty_2") * 1)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "doz").then(pl.col("qty_2") / 0.756)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "m3").then(pl.col("qty_2") * 1560)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "t").then(pl.col("qty_2") * 907.185)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "kts").then(pl.col("qty_2") * 1)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "pfl").then(pl.col("qty_2") * 0.789)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "gm").then(pl.col("qty_2") * 1000)
+                                        .otherwise(None).alias("converted_qty_2"),
 
-        # Balance the data
-        unique_countries = df['HTS'].unique()
-        all_dates = pd.date_range(start=df['date'].min(), end=df['date'].max(), freq='MS')
-        idx = pd.MultiIndex.from_product([unique_countries, all_dates], names=['HTS', 'date'])
-        df = df.set_index(['HTS', 'date']).reindex(idx, fill_value=0).reset_index()
+                            qrt=pl.when((pl.col("Month") >= 1) & (pl.col("Month") <= 3)).then(1)
+                                        .when((pl.col("Month") >= 4) & (pl.col("Month") <= 8)).then(2)
+                                        .when((pl.col("Month") >= 7) & (pl.col("Month") <= 9)).then(3)
+                                        .when((pl.col("Month") >= 10) & (pl.col("Month") <= 12)).then(4))
 
-        if self.quarterly:
-            df = self.to_quarterly(df)
+        df = df.rename({"Year": "year", "Month": "month", "Country": "country", "Commodity_Code": "hs"})
+        df = df.with_columns(hs=pl.col("hs").cast(pl.String).str.zfill(10))
+        df = df.filter(pl.col("naics") != "RETURN")
+        return self.process_data(df, switch)
 
-        df.to_parquet("data/processed/imp_exp.parquet")
 
-        if self.delete_files:
-            os.remove(f"{self.saving_dir}raw/import.csv")
-            os.remove(f"{self.saving_dir}raw/export.csv")
+    def process_data(self, df:pl.DataFrame, switch:list) -> pl.DataFrame:
 
-    def process_data(self, data_path:str, types:str) -> pd.DataFrame:
-        df = pd.read_csv(data_path, low_memory=False)
+        match switch:
+            case ["yearly", "naics"]:
+                df = self.filter_data(df, ["year", "naics"])
 
-        df['date'] = pd.to_datetime(df['year'].astype(str) + '-' + df['month'].astype(str))
-        df['value'] = df['value'].astype(float)
-        df.drop(['year', 'month'], axis=1, inplace=True)
+                df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                    naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
 
-        # remove illegal characters and remove invalid values
-        df['HTS'] = df['HTS'].astype(str)
-        df['HTS'] = df['HTS'].str.replace("'", '')
-        df['HTS'] = df['HTS'].str.strip()
-        df['HTS_dummy'] = df['HTS']
-        df['unit_1'] = df['unit_1'].str.lower()
-        df['HTS'] = df['HTS'].str[:4]
+                df = df.select(pl.col("*").exclude("year_right", "naics_right"))
 
-        # standerize all values to kg 
-        df['qty'] = df['qty_1'] + df['qty_2']
-        df.drop(['qty_1', 'qty_2'], axis=1, inplace=True)
-        df['qty'] = df.apply(self.convertions, axis=1)
-        df = df[df['qty'] > 0]
+                df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "naics")
+            case ["yearly", "hs"]:
+                df = self.filter_data(df, ["year", "hs"])
 
-        # group by date and HTS collapse
-        df = df.groupby(['date', 'HTS'])[['value', 'qty']].sum().reset_index()
-        df = df.sort_values(by=['date','HTS']).reset_index()
-        df = df.rename(columns={"value":f"{types}", "qty":f"qty_{types}"})
+                df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                            hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
+                df = df.select(pl.col("*").exclude("year_right", "hs_right"))
 
-        # save agriculture product
-        if self.agriculture:
-            agr = pd.read_json("data/external/agr_hts.json")
-            agr = agr.reset_index()
-            agr = agr.drop(columns=["index"])
-            agr = agr.rename(columns={0:"HTS"})
-            agr["HTS"] = agr["HTS"].astype(str).str.zfill(4)
-            df = pd.merge(df, agr, on="HTS", how="inner")
-            df = df[~df['HTS'].str.startswith(('05', '06', '14'))].reset_index()
+                df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "hs")
+            case ["qrt", "naics"]:
+                df = self.filter_data(df, ["year", "qrt", "naics"])
+
+                df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                    qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
+                                    naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics"))
+                                            )
+                df = df.select(pl.col("*").exclude("year_right", "qrt_right", "naics_right"))
+
+                df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "naics")
+
+            case ["qrt", "hs"]:
+                df = self.filter_data(df, ["year", "qrt", "hs"])
+
+                df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                    qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
+                                    hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs"))
+                                    )
+                df = df.select(pl.col("*").exclude("year_right", "qrt_right", "hs_right"))
+                df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "hs")
+
+            case ["monthly", "naics"]:
+                df = self.filter_data(df, ["year", "month", "naics"])
+
+                df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                    month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
+                                    naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics"))
+                                    )
+                df = df.select(pl.col("*").exclude("year_right", "month_right", "naics_right"))
+                df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "naics")
+
+            case ["monthly", "hs"]:
+                df = self.filter_data(df, ["year", "month", "hs"])
+
+                df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                    month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
+                                    hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs"))
+                                    )
+                df = df.select(pl.col("*").exclude("year_right", "month_right", "hs_right"))
+                df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "hs")
+            case ["yearly", "country"]:
+                df = self.filter_data(df, ["year", "country"])
+
+                df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                    country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country"))
+                                    )
+                df = df.select(pl.col("*").exclude("year_right", "country_right"))
+
+                df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "country")
+
+            case ["qrt", "country"]:
+                df = self.filter_data(df, ["year", "qrt", "country"])
+
+                df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                    qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
+                                    country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country"))
+                                    )
+                df = df.select(pl.col("*").exclude("year_right", "qrt_right", "country_right"))
+
+                return df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "country")
+
+            case ["monthly", "country"]:
+                df = self.filter_data(df, ["year", "month", "country"])
+
+                df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                    month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
+                                    country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country"))
+                                    )
+                df = df.select(pl.col("*").exclude("year_right", "month_right", "country_right"))
+
+                df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "country")
 
         return df
 
-    def to_quarterly(self, df: pd.DataFrame) -> pd.DataFrame:
+    def filter_data(self, df:pl.DataFrame, filter:list) -> pl.DataFrame:
+        imports = df.filter(pl.col("Trade") == "i").group_by(filter).agg(
+            pl.sum("data").alias("exports")).sort(filter)
+        exports = df.filter(pl.col("Trade") == "e").group_by(filter).agg(
+            pl.sum("data").alias("imports")).sort(filter)
 
-        df["quarter"] = df["date"].dt.to_period("Q-JUN")
-        df_Qyear = df.copy()
-        df_Qyear = df_Qyear.drop(['date'], axis=1)
-        df_Qyear = df_Qyear.groupby(['HTS', 'quarter']).sum().reset_index()
+        return imports.join(exports, on=filter, how="full", validate="1:1")
 
-        return df_Qyear
 
     def convertions(self, row:pd.Series) -> float:
             if row['unit_1'] == 'kg':

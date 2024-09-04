@@ -12,33 +12,166 @@ os.chdir("..")
 ```
 
 ```{python}
-from dotenv import load_dotenv
-import requests
 import polars as pl
-load_dotenv()
 ```
 
 ```{python}
-base = 'https://api.census.gov/data/timeseries/'
-key = os.getenv("CENSUS_API_KEY")
-flow = 'intltrade/exports/statenaics'
-param = 'CTY_CODE,CTY_NAME,ALL_VAL_MO,COMM_LVL,NAICS'
-time = '2022-12' 
-```
-This api call is the one that equal to the FRED data
-```{python}
-url = f'{base}{flow}?get={param}&STATE=PR&key={key}&time={time}'
-r = requests.get(url).json()
-df = pl.DataFrame(r)
-names = df.select(pl.col("column_0")).transpose()
-df = df.drop("column_0").transpose()
-df = df.rename(names.to_dicts().pop())
-df = df.filter((pl.col("COMM_LVL") == "NA4") & (pl.col("CTY_NAME") == "TOTAL FOR ALL COUNTRIES"))
-df = df.select(["time", "ALL_VAL_MO"]).rename({"ALL_VAL_MO": "census_value"})
-df = df.with_columns(pl.col("census_value").cast(pl.Int64),
-                      (pl.col("time") + "-01").str.to_datetime("%Y-%m-%d").alias("time")
-                     )
-df = df.group_by("time").agg(pl.sum("census_value"))
+df = pl.read_parquet("data/raw/jp_instance.parquet")
+time = "yearly"
+types = "hs"
+switch = [time, types]
 
-df
+df = df.with_columns(conv_1=pl.when(pl.col("unit_1").str.to_lowercase() == "kg").then(pl.col("qty_1") * 1)
+                                .when(pl.col("unit_1").str.to_lowercase() == "l").then(pl.col("qty_1") * 1)
+                                .when(pl.col("unit_1").str.to_lowercase() == "doz").then(pl.col("qty_1") / 0.756)
+                                .when(pl.col("unit_1").str.to_lowercase() == "m3").then(pl.col("qty_1") * 1560)
+                                .when(pl.col("unit_2").str.to_lowercase() == "t").then(pl.col("qty_1") * 907.185)
+                                .when(pl.col("unit_1").str.to_lowercase() == "kts").then(pl.col("qty_1") * 1)
+                                .when(pl.col("unit_1").str.to_lowercase() == "pfl").then(pl.col("qty_1") * 0.789)
+                                .when(pl.col("unit_1").str.to_lowercase() == "gm").then(pl.col("qty_1") * 1000).otherwise(None),
+
+                     conv_2=pl.when(pl.col("unit_2").str.to_lowercase() == "kg").then(pl.col("qty_2") * 1)
+                                .when(pl.col("unit_2").str.to_lowercase() == "l").then(pl.col("qty_2") * 1)
+                                .when(pl.col("unit_2").str.to_lowercase() == "doz").then(pl.col("qty_2") / 0.756)
+                                .when(pl.col("unit_2").str.to_lowercase() == "m3").then(pl.col("qty_2") * 1560)
+                                .when(pl.col("unit_2").str.to_lowercase() == "t").then(pl.col("qty_2") * 907.185)
+                                .when(pl.col("unit_2").str.to_lowercase() == "kts").then(pl.col("qty_2") * 1)
+                                .when(pl.col("unit_2").str.to_lowercase() == "pfl").then(pl.col("qty_2") * 0.789)
+                                .when(pl.col("unit_2").str.to_lowercase() == "gm").then(pl.col("qty_2") * 1000)
+                                .otherwise(None).alias("converted_qty_2"),
+
+                     qrt=pl.when((pl.col("Month") >= 1) & (pl.col("Month") <= 3)).then(1)
+                                  .when((pl.col("Month") >= 4) & (pl.col("Month") <= 8)).then(2)
+                                  .when((pl.col("Month") >= 7) & (pl.col("Month") <= 9)).then(3)
+                                  .when((pl.col("Month") >= 10) & (pl.col("Month") <= 12)).then(4))
+df = df.rename({"Year": "year", "Month": "month", "Country": "country", "Commodity_Code": "hs"})
+df = df.with_columns(hs=pl.col("hs").cast(pl.String).str.zfill(10))
+df = df.filter(pl.col("naics") != "RETURN")
+df2 = df
+
+match switch:
+  case ["yearly", "naics"]:
+    imports = df.filter(pl.col("Trade") == "i").group_by("year", "naics").agg(
+      pl.sum("data").alias("exports")).sort(["year", "naics"])
+    exports = df.filter(pl.col("Trade") == "e").group_by("year", "naics").agg(
+      pl.sum("data").alias("imports")).sort(["year", "naics"])
+
+    df = imports.join(exports, on=["year", "naics"], how="full", validate="1:1")
+    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                         naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
+
+    df = df.select(pl.col("*").exclude("year_right", "naics_right"))
+    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero"))
+  case ["yearly", "hs"]:
+    imports = df.filter(pl.col("Trade") == "i").group_by("year", "hs").agg(
+        pl.sum("data").alias("exports")).sort(["year", "hs"])
+    imports = imports.filter(pl.col("hs").is_not_null())
+    exports = df.filter(pl.col("Trade") == "e").group_by("year", "hs").agg(
+        pl.sum("data").alias("imports")).sort(["year", "hs"])
+    exports = exports.filter(pl.col("hs").is_not_null())
+    print(imports)
+
+    df = imports.join(exports, on=["year", "hs"], how="full", validate="1:1")
+    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
+    df = df.select(pl.col("*").exclude("year_right", "hs_right"))
+    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero"))
+  case ["quarterly", "naics"]:
+    imports = df.filter(pl.col("Trade") == "i").group_by("year", "qrt", "naics").agg(
+            pl.sum("data").alias("exports")).sort(["year", "qrt", "naics"])
+    exports = df.filter(pl.col("Trade") == "e").group_by("year", "qrt", "naics").agg(
+          pl.sum("data").alias("imports")).sort(["year", "qrt", "naics"])
+
+    df = imports.join(exports, on=["year", "qrt", "naics"], how="full", validate="1:1")
+    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                         qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
+                         naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics"))
+                                )
+    df = df.select(pl.col("*").exclude("year_right", "qrt_right", "naics_right"))
+    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero"))
+
+  case ["quarterly", "hs"]:
+    imports = df.filter(pl.col("Trade") == "i").group_by("year", "qrt", "hs").agg(
+        pl.sum("data").alias("exports")).sort(["year", "qrt", "hs"])
+    exports = df.filter(pl.col("Trade") == "e").group_by("year", "qrt", "hs").agg(
+        pl.sum("data").alias("imports")).sort(["year", "qrt", "hs"])
+
+    df = imports.join(exports, on=["year", "qrt", "hs"], how="full", validate="1:1")
+    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                          qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
+                          hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs"))
+                          ) 
+    df = df.select(pl.col("*").exclude("year_right", "qrt_right", "hs_right"))
+    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero"))
+  case ["monthly", "naics"]:
+    imports = df.filter(pl.col("Trade") == "i").group_by("year", "month", "naics").agg(
+        pl.sum("data").alias("exports")).sort(["year", "month", "naics"])
+    exports = df.filter(pl.col("Trade") == "e").group_by("year", "month", "naics").agg(
+        pl.sum("data").alias("imports")).sort(["year", "month", "naics"])
+
+    df = imports.join(exports, on=["year", "month", "naics"], how="full", validate="1:1")
+    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                         month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
+                          naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics"))
+                          )
+    df = df.select(pl.col("*").exclude("year_right", "month_right", "naics_right"))
+    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero"))
+
+  case ["monthly", "hs"]:
+    imports = df.filter(pl.col("Trade") == "i").group_by("year", "month", "hs").agg(
+        pl.sum("data").alias("exports")).sort(["year", "month", "hs"])
+    exports = df.filter(pl.col("Trade") == "e").group_by("year", "month", "hs").agg(
+        pl.sum("data").alias("imports")).sort(["year", "month", "hs"])
+
+    df = imports.join(exports, on=["year", "month", "hs"], how="full", validate="1:1")
+    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                          month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
+                          hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs"))
+                          )
+    df = df.select(pl.col("*").exclude("year_right", "month_right", "hs_right"))
+  case ["yearly", "country"]:
+    imports = df.filter(pl.col("Trade") == "i").group_by("year", "country").agg(
+        pl.sum("data").alias("exports")).sort(["year", "country"])
+    exports = df.filter(pl.col("Trade") == "e").group_by("year", "country").agg(
+        pl.sum("data").alias("imports")).sort(["year", "country"])
+
+    df = imports.join(exports, on=["year", "country"], how="full", validate="1:1")
+    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                          country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country"))
+                          )
+    df = df.select(pl.col("*").exclude("year_right", "country_right"))
+    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero"))
+  case ["quarterly", "country"]:
+    imports = df.filter(pl.col("Trade") == "i").group_by("year", "qrt", "country").agg(
+        pl.sum("data").alias("exports")).sort(["year", "qrt", "country"])
+    exports = df.filter(pl.col("Trade") == "e").group_by("year", "qrt", "country").agg(
+        pl.sum("data").alias("imports")).sort(["year", "qrt", "country"])
+
+    df = imports.join(exports, on=["year", "qrt", "country"], how="full", validate="1:1")
+    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                          qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
+                          country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country"))
+                          )
+    df = df.select(pl.col("*").exclude("year_right", "qrt_right", "country_right"))
+    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero"))
+  case ["monthly", "country"]:
+    imports = df.filter(pl.col("Trade") == "i").group_by("year", "month", "country").agg(
+        pl.sum("data").alias("exports")).sort(["year", "month", "country"])
+    exports = df.filter(pl.col("Trade") == "e").group_by("year", "month", "country").agg(
+        pl.sum("data").alias("imports")).sort(["year", "month", "country"])
+
+    df = imports.join(exports, on=["year", "month", "country"], how="full", validate="1:1")
+    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                          month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
+                          country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country"))
+                          )
+    df = df.select(pl.col("*").exclude("year_right", "month_right", "country_right"))
+    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero"))
+
+df2.filter(pl.col("hs").is_null())
+imports = df2.filter(pl.col("Trade") == "i").group_by("year", "hs").agg(
+  pl.sum("data").alias("exports")).sort(["year", "hs"])
+exports = df2.filter(pl.col("Trade") == "e").group_by("year", "hs").agg(
+  pl.sum("data").alias("imports")).sort(["year", "hs"])
+exports
 ```

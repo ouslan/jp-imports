@@ -1,0 +1,26 @@
+---
+title: "Developing download"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+import polars as pl
+from datetime import datetime
+from itertools import combinations 
+from src.jp_imports.data_process import DataProcess
+```
+
+
+```{python}
+df = DataProcess(saving_dir="data/raw/")
+df
+
+```
