@@ -13,14 +13,17 @@ os.chdir("..")
 
 ```{python}
 import polars as pl
-from datetime import datetime
-from itertools import combinations 
+from plotly import express as px
 from src.jp_imports.data_process import DataProcess
 ```
 
 
 ```{python}
-df = DataProcess(saving_dir="data/raw/")
+save_path = "data/"
+df = DataProcess(saving_dir=save_path, instance="jp_instetute", debug=True).process_int_jp(time="yearly", types="total")
 df
+```
+
+```{python}
 
 ```
