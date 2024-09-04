@@ -25,6 +25,8 @@ class DataPull:
             os.makedirs(self.saving_dir + "raw")
         if not os.path.exists(self.saving_dir + "processed"):
             os.makedirs(self.saving_dir + "processed")
+        if not os.path.exists(self.saving_dir + "external"):
+            os.makedirs(self.saving_dir + "external")
 
         match instance:
             case "jp_instetute":
@@ -92,6 +94,9 @@ class DataPull:
                                 bar.update(len(chunk))  # Update the progress bar with the size of the chunk
 
     def pull_int_jp(self) -> None:
+
+        if not os.path.exists(self.saving_dir + "external/code_classification.json"):
+            self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_classification.json", filename=(self.saving_dir + "external/code_classification.json"))
         if not os.path.exists(self.saving_dir + "raw/jp_instance.parquet"):
             url = "https://datos.estadisticas.pr/dataset/92d740af-97e4-4cb3-a990-2f4d4fa05324/resource/b4d10e3d-0924-498c-9c0d-81f00c958ca6/download/ftrade_all_iepr.csv"
             self.pull_file(url=url, filename=(self.saving_dir + "raw/jp_instance.csv"), verify=False)
