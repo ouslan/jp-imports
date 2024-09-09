@@ -1,0 +1,36 @@
+---
+title: "Developing download"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+from dotenv import load_dotenv
+import os
+os.chdir("..")
+load_dotenv()
+```
+
+```{python}
+from sqlalchemy import create_engine
+import polars as pl
+```
+
+```{python}
+db_user = os.environ.get("POSTGRES_USER")
+db_password = os.environ.get("POSTGRES_PASSWORD")
+db_name = os.environ.get("POSTGRES_DB")
+db_host = os.environ.get("POSTGRES_HOST")
+db_port = os.environ.get("POSTGRES_PORT")
+conn = create_engine(f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}")
+```
+
+
+
+
+```{python}
+df = pl.read_excel("data/raw/naics-6.xlsx")
+df.write_database("naics",conn, if_table_exists="replace")
+```
