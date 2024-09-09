@@ -1,50 +1,26 @@
 services:
-  app:
-    container_name: Dash_app
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    ports: 
-      - 7050:7050
-    networks:
-      - timescale_network
-    depends_on:
-      - database
-    environment:
-      # Add any necessary environment variables specific to your app
-      - APP_ENV=production
-
-  mkdocs:
-    image: squidfunk/mkdocs-material
-    container_name: web-docs
-    restart: always
-    ports:
-      - "8005:8000"
-    volumes:
-      - ./:/docs
-    stdin_open: true
-    tty: true
-    networks:
-      - timescale_network
-
   database:
     image: timescale/timescaledb-ha:pg16
-    container_name: timescaledb
+    container_name: imports_db
+    restart: always
     ports:
-      - "${POSTGRES_PORT}:5432"
-    volumes:
-      - timescale_volume:/home/postgres/pgdata/data/ # Mounting the volume here for persistence
+      - ${POSTGRES_PORT}:5432
     environment:
       TIMESCALEDB_TELEMETRY: off
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - type: volume
+        source: timescale_volume
+        target: /var/lib/postgresql/data
+        read_only: false
     networks:
       - timescale_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
       retries: 5
 
 networks:
@@ -52,4 +28,3 @@ networks:
 
 volumes:
   timescale_volume:
-  pgadmin_data:

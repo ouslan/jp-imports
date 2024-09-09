@@ -10,8 +10,6 @@ class DataProcess(DataPull):
         self.state_code = state_code
         self.debug = debug
         self.instance = instance
-
-        super().__init__(saving_dir=self.saving_dir, state_code=self.state_code, instance=self.instance,  debug=self.debug)
         self.codes = json.load(open(self.saving_dir + "external/code_classification.json"))
 
     def process_int_jp(self, time:str, types:str, group:bool=False):
@@ -24,7 +22,12 @@ class DataProcess(DataPull):
 
 
     def process_base(self) -> pl.DataFrame:
-        df = pl.read_parquet(self.saving_dir + "raw/jp_instance.parquet")
+        try:
+            df = pl.read_parquet(self.saving_dir + "raw/jp_instance.parquet")
+        except FileNotFoundError:
+            super().__init__(saving_dir=self.saving_dir, state_code=self.state_code, instance=self.instance,  debug=self.debug)
+            df = pl.read_parquet(self.saving_dir + "raw/jp_instance.parquet")
+
 
         df = df.with_columns(conv_1=pl.when(pl.col("unit_1").str.to_lowercase() == "kg").then(pl.col("qty_1") * 1)
                                         .when(pl.col("unit_1").str.to_lowercase() == "l").then(pl.col("qty_1") * 1)
