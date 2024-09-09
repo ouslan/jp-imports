@@ -72,7 +72,9 @@ class DataProcess(DataPull):
                     df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")))
                     df = df.select(pl.col("*").exclude("year_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_yearly.parquet")
+                    return df
 
             case ["yearly", "naics"]:
                 if os.path.exists(self.saving_dir + "processed/total_yearly_naics.parquet"):
@@ -84,7 +86,9 @@ class DataProcess(DataPull):
                                         naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
                     df = df.select(pl.col("*").exclude("year_right", "naics_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "naics")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_yearly_naics.parquet")
+                    return df
 
             case ["yearly", "hs"]:
                 if os.path.exists(self.saving_dir + "processed/total_yearly_hs.parquet"):
@@ -96,7 +100,9 @@ class DataProcess(DataPull):
                                                 hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
                     df = df.select(pl.col("*").exclude("year_right", "hs_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "hs")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_yearly_hs.parquet")
+                    return df
 
             case ["yearly", "country"]:
                 if os.path.exists(self.saving_dir + "processed/total_yearly_country.parquet"):
@@ -108,7 +114,9 @@ class DataProcess(DataPull):
                                         country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
                     df = df.select(pl.col("*").exclude("year_right", "country_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "country")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_yearly_country.parquet")
+                    return df
 
             case ["fiscal", "total"]:
                 if os.path.exists(self.saving_dir + "processed/total_fiscal.parquet"):
@@ -120,7 +128,9 @@ class DataProcess(DataPull):
                     df = df.select(pl.col("*").exclude("fiscal_year_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year")
                     df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_fiscal.parquet")
+                    return df
 
             case ["fiscal", "naics"]:
                 if os.path.exists(self.saving_dir + "processed/total_fiscal_naics.parquet"):
@@ -132,7 +142,9 @@ class DataProcess(DataPull):
                                         naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
                     df = df.select(pl.col("*").exclude("fiscal_year_right", "naics_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year", "naics")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_fiscal_naics.parquet")
+                    return df
 
             case ["fiscal", "hs"]:
                 if os.path.exists(self.saving_dir + "processed/total_fiscal_hs.parquet"):
@@ -144,7 +156,9 @@ class DataProcess(DataPull):
                                         hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
                     df = df.select(pl.col("*").exclude("fiscal_year_right", "hs_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year", "hs")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_fiscal_hs.parquet")
+                    return df
 
             case ["fiscal", "country"]:
                 if os.path.exists(self.saving_dir + "processed/total_fiscal_country.parquet"):
@@ -156,7 +170,9 @@ class DataProcess(DataPull):
                                         country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
                     df = df.select(pl.col("*").exclude("fiscal_year_right", "country_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year", "country")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_fiscal_country.parquet")
+                    return df
 
             case ["qrt", "total"]:
                 if os.path.exists(self.saving_dir + "processed/total_qrt.parquet"):
@@ -168,7 +184,9 @@ class DataProcess(DataPull):
                                         qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")))
                     df = df.select(pl.col("*").exclude("year_right", "qrt_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_qrt.parquet")
+                    return df
 
             case ["qrt", "naics"]:
                 if os.path.exists(self.saving_dir + "processed/total_qrt_naics.parquet"):
@@ -181,7 +199,9 @@ class DataProcess(DataPull):
                                         naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
                     df = df.select(pl.col("*").exclude("year_right", "qrt_right", "naics_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "naics")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_qrt_naics.parquet")
+                    return df
 
             case ["qrt", "hs"]:
                 if os.path.exists(self.saving_dir + "processed/total_qrt_hs.parquet"):
@@ -194,7 +214,9 @@ class DataProcess(DataPull):
                                         hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
                     df = df.select(pl.col("*").exclude("year_right", "qrt_right", "hs_right"))
                     df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "hs")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_qrt_hs.parquet")
+                    return df
 
             case ["qrt", "country"]:
                 if os.path.exists(self.saving_dir + "processed/total_qrt_country.parquet"):
@@ -207,7 +229,9 @@ class DataProcess(DataPull):
                                         country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
                     df = df.select(pl.col("*").exclude("year_right", "qrt_right", "country_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "country")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_qrt_country.parquet")
+                    return df
 
             case ["monthly", "total"]:
                 if os.path.exists(self.saving_dir + "processed/total_monthly.parquet"):
@@ -219,7 +243,9 @@ class DataProcess(DataPull):
                                         month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")))
                     df = df.select(pl.col("*").exclude("year_right", "month_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_monthly.parquet")
+                    return df
 
             case ["monthly", "naics"]:
                 if os.path.exists(self.saving_dir + "processed/total_monthly_naics.parquet"):
@@ -231,7 +257,9 @@ class DataProcess(DataPull):
                                         month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
                                         naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
                     df = df.select(pl.col("*").exclude("year_right", "month_right", "naics_right"))
-                    return df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "naics")
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "naics")
+                    df.write_parquet(self.saving_dir + "processed/total_monthly_naics.parquet")
+                    return df
 
             case ["monthly", "hs"]:
                 if os.path.exists(self.saving_dir + "processed/total_monthly_hs.parquet"):
@@ -243,7 +271,9 @@ class DataProcess(DataPull):
                                         month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
                                         hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
                     df = df.select(pl.col("*").exclude("year_right", "month_right", "hs_right"))
-                    return df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "hs")
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "hs")
+                    df.write_parquet(self.saving_dir + "processed/total_monthly_hs.parquet")
+                    return df
 
             case ["monthly", "country"]:
                 if os.path.exists(self.saving_dir + "processed/total_monthly_country.parquet"):
@@ -256,7 +286,9 @@ class DataProcess(DataPull):
                                         country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
                     df = df.select(pl.col("*").exclude("year_right", "month_right", "country_right"))
                     df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "country")
-                    return df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df.write_parquet(self.saving_dir + "processed/total_monthly_country.parquet")
+                    return df
 
             case _:
                 raise ValueError(f"Invalid switch: {switch}")
