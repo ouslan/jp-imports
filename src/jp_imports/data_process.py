@@ -207,9 +207,7 @@ class DataProcess(DataPull):
                 df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
 
                 for key, value in self.codes.items():
-                    
-
-
+                    pass
 
     def filter_data(self, df:pl.DataFrame, filter:list) -> pl.DataFrame:
         imports = df.filter(pl.col("Trade") == "i").group_by(filter).agg(

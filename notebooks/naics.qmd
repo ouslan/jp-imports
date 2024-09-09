@@ -20,10 +20,6 @@ from src.jp_imports.data_process import DataProcess
 
 ```{python}
 save_path = "data/"
-df = DataProcess(saving_dir=save_path, instance="jp_instetute", debug=True).process_int_jp(time="yearly", types="total", group=True)
+df = DataProcess(saving_dir=save_path, instance="jp_instetute", debug=True).process_int_jp(time="monthly", types="total")
 df
-```
-
-```{python}
-
 ```
