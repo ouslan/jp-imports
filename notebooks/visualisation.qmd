@@ -13,15 +13,9 @@ os.chdir("..")
 
 ```{python}
 import polars as pl
-from datetime import datetime
+from src.jp_imports.data_process import DataProcess
 ```
 
 ```{python}
 # main
-df = pl.read_csv("data/raw/ftrade_all_iepr.csv", ignore_errors=True)
-df = df.filter(pl.col("Trade") == "e").drop("Trade")
-df = df.with_columns(pl.when(pl.col("Month") > 6).then(pl.col("Year") + 1).otherwise(pl.col("Year")).alias("fiscal_year"))
-df = df.group_by("fiscal_year").agg(pl.sum("data").alias("date"))
-df.sort("fiscal_year")
 ```
-
