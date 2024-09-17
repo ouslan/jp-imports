@@ -19,10 +19,162 @@ class DataProcess(DataPull):
             #return self.process_cat(switch=switch)
             print("Not implemented")
         else:
-            return self.process_data(switch)
+            return self.process_data(switch=switch, base=self.process_jp_base())
 
+    def process_data(self, switch:list, base:pl.lazyframe) -> pl.LazyFrame:
 
-    def process_base(self) -> pl.LazyFrame:
+        match switch:
+            case ["yearly", "total"]:
+                    df = self.filter_data(base, ["year"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")))
+                    df = df.select(pl.col("*").exclude("year_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["yearly", "naics"]:
+                    df = self.filter_data(base, ["year", "naics"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                        naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
+                    df = df.select(pl.col("*").exclude("year_right", "naics_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "naics")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["yearly", "hs"]:
+                    df = self.filter_data(base, ["year", "hs"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                                hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
+                    df = df.select(pl.col("*").exclude("year_right", "hs_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "hs")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["yearly", "country"]:
+                    df = self.filter_data(base, ["year", "country"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
+                    df = df.select(pl.col("*").exclude("year_right", "country_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "country")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["fiscal", "total"]:
+                    df = self.filter_data(base, ["fiscal_year"])
+                    df = df.with_columns(fiscal_year=pl.when(pl.col("fiscal_year").is_null()).then(pl.col("fiscal_year_right")).otherwise(pl.col("fiscal_year")))
+                    df = df.select(pl.col("*").exclude("fiscal_year_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["fiscal", "naics"]:
+                    df = self.filter_data(base, ["fiscal_year", "naics"])
+                    df = df.with_columns(fiscal_year=pl.when(pl.col("fiscal_year").is_null()).then(pl.col("fiscal_year_right")).otherwise(pl.col("fiscal_year")),
+                                        naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
+                    df = df.select(pl.col("*").exclude("fiscal_year_right", "naics_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year", "naics")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["fiscal", "hs"]:
+                    df = self.filter_data(base, ["fiscal_year", "hs"])
+                    df = df.with_columns(fiscal_year=pl.when(pl.col("fiscal_year").is_null()).then(pl.col("fiscal_year_right")).otherwise(pl.col("fiscal_year")),
+                                        hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
+                    df = df.select(pl.col("*").exclude("fiscal_year_right", "hs_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year", "hs")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["fiscal", "country"]:
+                    df = self.filter_data(base, ["fiscal_year", "country"])
+                    df = df.with_columns(fiscal_year=pl.when(pl.col("fiscal_year").is_null()).then(pl.col("fiscal_year_right")).otherwise(pl.col("fiscal_year")),
+                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
+                    df = df.select(pl.col("*").exclude("fiscal_year_right", "country_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year", "country")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["qrt", "total"]:
+                    df = self.filter_data(base, ["year", "qrt"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                        qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")))
+                    df = df.select(pl.col("*").exclude("year_right", "qrt_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["qrt", "naics"]:
+                    df = self.filter_data(base, ["year", "qrt", "naics"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                        qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
+                                        naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
+                    df = df.select(pl.col("*").exclude("year_right", "qrt_right", "naics_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "naics")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["qrt", "hs"]:
+                    df = self.filter_data(base, ["year", "qrt", "hs"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                        qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
+                                        hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
+                    df = df.select(pl.col("*").exclude("year_right", "qrt_right", "hs_right"))
+                    df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "hs")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["qrt", "country"]:
+                    df = self.filter_data(base, ["year", "qrt", "country"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                        qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
+                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
+                    df = df.select(pl.col("*").exclude("year_right", "qrt_right", "country_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "country")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["monthly", "total"]:
+                    df = self.filter_data(base, ["year", "month"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                        month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")))
+                    df = df.select(pl.col("*").exclude("year_right", "month_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case ["monthly", "naics"]:
+                    df = self.filter_data(base, ["year", "month", "naics"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                        month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
+                                        naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
+                    df = df.select(pl.col("*").exclude("year_right", "month_right", "naics_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "naics")
+                    return df
+
+            case ["monthly", "hs"]:
+                    df = self.filter_data(base, ["year", "month", "hs"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                        month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
+                                        hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
+                    df = df.select(pl.col("*").exclude("year_right", "month_right", "hs_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "hs")
+                    return df
+
+            case ["monthly", "country"]:
+                    df = self.filter_data(base, ["year", "month", "country"])
+                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
+                                        month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
+                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
+                    df = df.select(pl.col("*").exclude("year_right", "month_right", "country_right"))
+                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "country")
+                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
+                    return df
+
+            case _:
+                raise ValueError(f"Invalid switch: {switch}")
+
+    def process_jp_base(self) -> pl.LazyFrame:
         if os.path.exists(self.saving_dir + "raw/jp_instance.parquet"):
             df = pl.scan_parquet(self.saving_dir + "raw/jp_instance.parquet")
         else:
@@ -35,176 +187,6 @@ class DataProcess(DataPull):
         df = df.with_columns(hs=pl.col("hs").cast(pl.String).str.zfill(10))
         df = df.filter(pl.col("naics") != "RETURN")
         return df
-
-    def process_data(self, switch:list) -> pl.LazyFrame:
-
-        match switch:
-            case ["yearly", "total"]:
-
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")))
-                    df = df.select(pl.col("*").exclude("year_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["yearly", "naics"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year", "naics"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                        naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
-                    df = df.select(pl.col("*").exclude("year_right", "naics_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "naics")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["yearly", "hs"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year", "hs"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                                hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
-                    df = df.select(pl.col("*").exclude("year_right", "hs_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "hs")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["yearly", "country"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year", "country"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
-                    df = df.select(pl.col("*").exclude("year_right", "country_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "country")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["fiscal", "total"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["fiscal_year"])
-                    df = df.with_columns(fiscal_year=pl.when(pl.col("fiscal_year").is_null()).then(pl.col("fiscal_year_right")).otherwise(pl.col("fiscal_year")))
-                    df = df.select(pl.col("*").exclude("fiscal_year_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["fiscal", "naics"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["fiscal_year", "naics"])
-                    df = df.with_columns(fiscal_year=pl.when(pl.col("fiscal_year").is_null()).then(pl.col("fiscal_year_right")).otherwise(pl.col("fiscal_year")),
-                                        naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
-                    df = df.select(pl.col("*").exclude("fiscal_year_right", "naics_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year", "naics")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["fiscal", "hs"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["fiscal_year", "hs"])
-                    df = df.with_columns(fiscal_year=pl.when(pl.col("fiscal_year").is_null()).then(pl.col("fiscal_year_right")).otherwise(pl.col("fiscal_year")),
-                                        hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
-                    df = df.select(pl.col("*").exclude("fiscal_year_right", "hs_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year", "hs")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["fiscal", "country"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["fiscal_year", "country"])
-                    df = df.with_columns(fiscal_year=pl.when(pl.col("fiscal_year").is_null()).then(pl.col("fiscal_year_right")).otherwise(pl.col("fiscal_year")),
-                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
-                    df = df.select(pl.col("*").exclude("fiscal_year_right", "country_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("fiscal_year", "country")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["qrt", "total"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year", "qrt"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                        qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")))
-                    df = df.select(pl.col("*").exclude("year_right", "qrt_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["qrt", "naics"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year", "qrt", "naics"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                        qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
-                                        naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
-                    df = df.select(pl.col("*").exclude("year_right", "qrt_right", "naics_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "naics")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["qrt", "hs"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year", "qrt", "hs"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                        qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
-                                        hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
-                    df = df.select(pl.col("*").exclude("year_right", "qrt_right", "hs_right"))
-                    df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "hs")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["qrt", "country"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year", "qrt", "country"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                        qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
-                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
-                    df = df.select(pl.col("*").exclude("year_right", "qrt_right", "country_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "qrt", "country")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["monthly", "total"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year", "month"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                        month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")))
-                    df = df.select(pl.col("*").exclude("year_right", "month_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case ["monthly", "naics"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year", "month", "naics"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                        month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
-                                        naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
-                    df = df.select(pl.col("*").exclude("year_right", "month_right", "naics_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "naics")
-                    return df
-
-            case ["monthly", "hs"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year", "month", "hs"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                        month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
-                                        hs=pl.when(pl.col("hs").is_null()).then(pl.col("hs_right")).otherwise(pl.col("hs")))
-                    df = df.select(pl.col("*").exclude("year_right", "month_right", "hs_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "hs")
-                    return df
-
-            case ["monthly", "country"]:
-                    df = self.process_base()
-                    df = self.filter_data(df, ["year", "month", "country"])
-                    df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                        month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
-                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
-                    df = df.select(pl.col("*").exclude("year_right", "month_right", "country_right"))
-                    df = df.with_columns(pl.col("imports", "exports").fill_null(strategy="zero")).sort("year", "month", "country")
-                    df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-                    return df
-
-            case _:
-                raise ValueError(f"Invalid switch: {switch}")
 
     def process_cat(self, df:pl.DataFrame, switch:list):
 
