@@ -14,6 +14,7 @@ class DataProcess(DataPull):
 
     def process_int_jp(self, time:str, types:str, group:bool=False):
         switch = [time, types]
+        
         if group:
             #return self.process_cat(switch=switch)
             print("Not implemented")
@@ -22,45 +23,18 @@ class DataProcess(DataPull):
 
 
     def process_base(self) -> pl.LazyFrame:
-        try:
+        if os.path.exists(self.saving_dir + "raw/jp_instance.parquet"):
             df = pl.scan_parquet(self.saving_dir + "raw/jp_instance.parquet")
-        except FileNotFoundError:
+        else:
             super().__init__(saving_dir=self.saving_dir, state_code=self.state_code, instance=self.instance,  debug=self.debug)
             df = pl.scan_parquet(self.saving_dir + "raw/jp_instance.parquet")
 
-
-        df = df.with_columns(conv_1=pl.when(pl.col("unit_1").str.to_lowercase() == "kg").then(pl.col("qty_1") * 1)
-                                        .when(pl.col("unit_1").str.to_lowercase() == "l").then(pl.col("qty_1") * 1)
-                                        .when(pl.col("unit_1").str.to_lowercase() == "doz").then(pl.col("qty_1") / 0.756)
-                                        .when(pl.col("unit_1").str.to_lowercase() == "m3").then(pl.col("qty_1") * 1560)
-                                        .when(pl.col("unit_2").str.to_lowercase() == "t").then(pl.col("qty_1") * 907.185)
-                                        .when(pl.col("unit_1").str.to_lowercase() == "kts").then(pl.col("qty_1") * 1)
-                                        .when(pl.col("unit_1").str.to_lowercase() == "pfl").then(pl.col("qty_1") * 0.789)
-                                        .when(pl.col("unit_1").str.to_lowercase() == "gm").then(pl.col("qty_1") * 1000).otherwise(None),
-
-                            conv_2=pl.when(pl.col("unit_2").str.to_lowercase() == "kg").then(pl.col("qty_2") * 1)
-                                        .when(pl.col("unit_2").str.to_lowercase() == "l").then(pl.col("qty_2") * 1)
-                                        .when(pl.col("unit_2").str.to_lowercase() == "doz").then(pl.col("qty_2") / 0.756)
-                                        .when(pl.col("unit_2").str.to_lowercase() == "m3").then(pl.col("qty_2") * 1560)
-                                        .when(pl.col("unit_2").str.to_lowercase() == "t").then(pl.col("qty_2") * 907.185)
-                                        .when(pl.col("unit_2").str.to_lowercase() == "kts").then(pl.col("qty_2") * 1)
-                                        .when(pl.col("unit_2").str.to_lowercase() == "pfl").then(pl.col("qty_2") * 0.789)
-                                        .when(pl.col("unit_2").str.to_lowercase() == "gm").then(pl.col("qty_2") * 1000)
-                                        .otherwise(None).alias("converted_qty_2"),
-
-                            qrt=pl.when((pl.col("Month") >= 1) & (pl.col("Month") <= 3)).then(1)
-                                        .when((pl.col("Month") >= 4) & (pl.col("Month") <= 8)).then(2)
-                                        .when((pl.col("Month") >= 7) & (pl.col("Month") <= 9)).then(3)
-                                        .when((pl.col("Month") >= 10) & (pl.col("Month") <= 12)).then(4),
-
-                            fiscal_year=pl.when(pl.col("Month") > 6).then(pl.col("Year") + 1)
-                                          .otherwise(pl.col("Year")).alias("fiscal_year"))
-
         df = df.rename({"Year": "year", "Month": "month", "Country": "country", "Commodity_Code": "hs"})
+        df = self.conversion(df)
+
         df = df.with_columns(hs=pl.col("hs").cast(pl.String).str.zfill(10))
         df = df.filter(pl.col("naics") != "RETURN")
         return df
-
 
     def process_data(self, switch:list) -> pl.LazyFrame:
 
@@ -254,3 +228,32 @@ class DataProcess(DataPull):
 
         return imports.join(exports, on=filter, how="full", validate="1:1")
 
+    def conversion(self, df:pl.LazyFrame) -> pl.LazyFrame:
+
+        df = df.with_columns(conv_1=pl.when(pl.col("unit_1").str.to_lowercase() == "kg").then(pl.col("qty_1") * 1)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "l").then(pl.col("qty_1") * 1)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "doz").then(pl.col("qty_1") / 0.756)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "m3").then(pl.col("qty_1") * 1560)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "t").then(pl.col("qty_1") * 907.185)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "kts").then(pl.col("qty_1") * 1)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "pfl").then(pl.col("qty_1") * 0.789)
+                                        .when(pl.col("unit_1").str.to_lowercase() == "gm").then(pl.col("qty_1") * 1000).otherwise(None),
+
+                            conv_2=pl.when(pl.col("unit_2").str.to_lowercase() == "kg").then(pl.col("qty_2") * 1)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "l").then(pl.col("qty_2") * 1)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "doz").then(pl.col("qty_2") / 0.756)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "m3").then(pl.col("qty_2") * 1560)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "t").then(pl.col("qty_2") * 907.185)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "kts").then(pl.col("qty_2") * 1)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "pfl").then(pl.col("qty_2") * 0.789)
+                                        .when(pl.col("unit_2").str.to_lowercase() == "gm").then(pl.col("qty_2") * 1000)
+                                        .otherwise(None),
+
+                            qrt=pl.when((pl.col("month") >= 1) & (pl.col("month") <= 3)).then(1)
+                                        .when((pl.col("month") >= 4) & (pl.col("month") <= 8)).then(2)
+                                        .when((pl.col("month") >= 7) & (pl.col("month") <= 9)).then(3)
+                                        .when((pl.col("month") >= 10) & (pl.col("month") <= 12)).then(4),
+
+                            fiscal_year=pl.when(pl.col("month") > 6).then(pl.col("year") + 1)
+                                          .otherwise(pl.col("year")).alias("fiscal_year"))
+        return df
