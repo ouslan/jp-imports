@@ -12,7 +12,7 @@ class DataProcess(DataPull):
         self.instance = instance
         self.codes = json.load(open(self.saving_dir + "external/code_classification.json"))
 
-    def process_int_jp(self, time:str, types:str, group:bool=False):
+    def process_int_jp(self, time:str, types:str, group:bool=False) -> pl.LazyFrame:
         switch = [time, types]
         if group:
             #return self.process_cat(switch=switch)
