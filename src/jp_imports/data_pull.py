@@ -39,11 +39,15 @@ class DataPull:
             with zipfile.ZipFile(additional_file_path, "r") as zip_ref:
                 zip_ref.extractall(os.path.join(f"{self.saving_dir}raw/"))
 
-        # Remove the zip files and rename the CSV files
-        for file in os.listdir(os.path.join("data", "raw")):
-            file_path = os.path.join("data", "raw", file)
-            if file.endswith(".zip"):
-                os.remove(file_path)
+        imports = pl.read_csv(self.saving_dir + "raw/IMPORT_HTS10_ALL.csv", ignore_errors=True)
+        exports = pl.read_csv(self.saving_dir + "raw/EXPORT_HTS10_ALL.csv", ignore_errors=True)
+        df = pl.concat([imports, exports], how="vertical")
+
+        for file in os.listdir(self.saving_dir + "raw/"):
+            if not file.endswith(".parquet"):
+                os.remove(self.saving_dir + "raw/" + file)
+
+        df.write_parquet(self.saving_dir + "raw/int_org.parquet")
 
     def pull_int_jp(self) -> None:
 
@@ -130,7 +134,7 @@ class DataPull:
             df = df.select(pl.col("date", "census_value", "comm_level", "naics_code", "country_name", "contry_code"))
             df = df.with_columns(pl.col("census_value").cast(pl.Int64))
             census_df = pl.concat([census_df, df], how="vertical")
-        
+
         census_df.write_parquet(saving_path)
 
     def pull_file(self, url:str, filename:str, verify:bool=True) -> None:

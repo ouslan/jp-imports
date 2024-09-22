@@ -18,13 +18,12 @@ from src.jp_imports.data_pull import DataPull
 ```
 
 ```{python}
-DataPull(saving_dir="data/", state_code="PR", instance="instetute")
+DataPull(saving_dir="data/").pull_int_org()
 ```
 
 ```{python}
-exports = pl.read_csv("data/raw/export.csv")
-imports = pl.read_csv("data/raw/import.csv")
+exports = pl.read_csv("data/raw/EXPORT_HTS10_ALL.csv")
+imports = pl.read_csv("data/raw/IMPORT_HTS10_ALL.csv")
 
-df = pl.concat([imports, exports], how="vertical")
-df
+imports
 ```
