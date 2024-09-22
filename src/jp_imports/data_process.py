@@ -12,9 +12,9 @@ class DataProcess(DataPull):
         self.instance = instance
         self.codes = json.load(open(self.saving_dir + "external/code_classification.json"))
 
-    def process_int_jp(self, time:str, types:str, group:bool=False):
+    def process_int_jp(self, time:str, types:str, group:bool=False) -> pl.LazyFrame:
         switch = [time, types]
-        
+
         if group:
             #return self.process_cat(switch=switch)
             print("Not implemented")
@@ -187,6 +187,9 @@ class DataProcess(DataPull):
         df = df.with_columns(hs=pl.col("hs").cast(pl.String).str.zfill(10))
         df = df.filter(pl.col("naics") != "RETURN")
         return df
+
+    def process_int_base(self) -> pl.LazyFrame:
+        pass
 
     def process_cat(self, df:pl.DataFrame, switch:list):
 

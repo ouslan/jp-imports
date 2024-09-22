@@ -1,0 +1,17 @@
+---
+title: "agricultural data processing"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+import polars as pl
+from src.jp_imports.data_process import DataProcess
+```

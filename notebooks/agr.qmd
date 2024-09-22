@@ -1,0 +1,30 @@
+---
+title: "Agriculture processing"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+import polars as pl
+from src.jp_imports.data_process import DataProcess
+from src.jp_imports.data_pull import DataPull
+```
+
+```{python}
+DataPull(saving_dir="data/", state_code="PR", instance="instetute")
+```
+
+```{python}
+exports = pl.read_csv("data/raw/export.csv")
+imports = pl.read_csv("data/raw/import.csv")
+
+df = pl.concat([imports, exports], how="vertical")
+df
+```

@@ -44,9 +44,7 @@ class DataPull:
             case _:
                 raise ValueError("Invalid instance, must be 'jp_instetute', 'instetute', or 'census'")
 
-
-
-    def pull_int_org(self):
+    def pull_int_org(self) -> None:
 
         if not os.path.exists(self.saving_dir + "raw/import.csv") and not os.path.exists(self.saving_dir + "raw/export.csv") or not os.path.exists(self.saving_dir + "processed/imp_exp.parquet"):
             self.pull_file(url="http://www.estadisticas.gobierno.pr/iepr/LinkClick.aspx?fileticket=JVyYmIHqbqc%3d&tabid=284&mid=244930", filename=(self.saving_dir + "raw/tmp.zip"))
@@ -66,32 +64,10 @@ class DataPull:
                 file_path = os.path.join("data", "raw", file)
                 if file.endswith(".zip"):
                     os.remove(file_path)
-                elif file.startswith("EXPORT") and file.endswith(".csv"):
-                    os.rename(file_path, os.path.join("data", "raw", "export.csv"))
-                elif file.startswith("IMPORT") and file.endswith(".csv"):
-                    os.rename(file_path, os.path.join("data", "raw", "import.csv"))
-                else:
-                    continue
+            
         else:
             if self.debug:
                 print("\033[0;36mNOTICE: \033[0m" + "Import and Export files already exist, skipping download")
-
-    def pull_file(self, url:str, filename:str, verify:bool=True) -> None:
-        if os.path.exists(filename):
-            if self.debug:
-                print("\033[0;36mNOTICE: \033[0m" + f"File {filename} already exists, skipping download")
-        else:
-            chunk_size = 10 * 1024 * 1024
-
-            with requests.get(url, stream=True, verify=verify) as response:
-                total_size = int(response.headers.get('content-length', 0))
-
-                with tqdm(total=total_size, unit='B', unit_scale=True, unit_divisor=1024, desc='Downloading') as bar:
-                    with open(filename, 'wb') as file:
-                        for chunk in response.iter_content(chunk_size=chunk_size):
-                            if chunk:
-                                file.write(chunk)
-                                bar.update(len(chunk))  # Update the progress bar with the size of the chunk
 
     def pull_int_jp(self) -> None:
 
@@ -203,3 +179,20 @@ class DataPull:
 
             if self.debug:
                 print("\033[0;36mNOTICE: \033[0m" + "Census data already exists, skipping download")
+
+    def pull_file(self, url:str, filename:str, verify:bool=True) -> None:
+        if os.path.exists(filename):
+            if self.debug:
+                print("\033[0;36mNOTICE: \033[0m" + f"File {filename} already exists, skipping download")
+        else:
+            chunk_size = 10 * 1024 * 1024
+
+            with requests.get(url, stream=True, verify=verify) as response:
+                total_size = int(response.headers.get('content-length', 0))
+
+                with tqdm(total=total_size, unit='B', unit_scale=True, unit_divisor=1024, desc='Downloading') as bar:
+                    with open(filename, 'wb') as file:
+                        for chunk in response.iter_content(chunk_size=chunk_size):
+                            if chunk:
+                                file.write(chunk)
+                                bar.update(len(chunk))  # Update the progress bar with the size of the chunk
