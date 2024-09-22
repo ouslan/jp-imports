@@ -17,7 +17,7 @@ class DataProcess(DataPull):
 
         if group:
             #return self.process_cat(switch=switch)
-            print("Not implemented")
+            raise NotImplementedError("Grouping not implemented yet")
         else:
             return self.process_data(switch=switch, base=self.process_jp_base())
 
@@ -189,7 +189,7 @@ class DataProcess(DataPull):
         return df
 
     def process_int_base(self) -> pl.LazyFrame:
-        pass
+        raise NotImplementedError("Not implemented yet")
 
     def process_cat(self, df:pl.DataFrame, switch:list):
 
