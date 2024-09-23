@@ -16,6 +16,8 @@ class DataPull:
 
         if not os.path.exists(self.saving_dir + "external/code_classification.json"):
             self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_classification.json", filename=(self.saving_dir + "external/code_classification.json"))
+        if not os.path.exists(self.saving_dir + "external/code_agr.json"):
+            self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_agr.json", filename=(self.saving_dir + "external/code_agr.json"))
 
         # Check if the saving directory exists
         if not os.path.exists(self.saving_dir + "raw"):
