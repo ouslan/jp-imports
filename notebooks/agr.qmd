@@ -1,0 +1,39 @@
+---
+title: "Agriculture processing"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+import polars as pl
+from src.jp_imports.data_process import DataProcess
+from src.jp_imports.data_pull import DataPull
+d = DataProcess("data/")
+```
+
+```{python}
+time = "yearly"
+types = "total"
+d.process_int_org(time, types, True).collect()
+```
+
+```{python}
+d.process_int_org(time, types, False).collect()
+```
+
+```{python}
+value = []
+
+for i in list(d.codes_agr.values()):
+    value.append(str(i).zfill(4))
+
+df.filter(pl.col("hs").str.slice(0, 4).is_in(value))
+value
+```
