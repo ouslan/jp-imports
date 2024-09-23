@@ -18,12 +18,10 @@ from src.jp_imports.data_pull import DataPull
 ```
 
 ```{python}
-DataPull(saving_dir="data/").pull_int_org()
+DataProcess("data/").process_int_jp("yearly", "total").collect()
 ```
 
 ```{python}
-exports = pl.read_csv("data/raw/EXPORT_HTS10_ALL.csv")
-imports = pl.read_csv("data/raw/IMPORT_HTS10_ALL.csv")
-
-imports
+df = pl.read_parquet("data/raw/int_org.parquet")
+df
 ```

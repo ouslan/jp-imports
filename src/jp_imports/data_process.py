@@ -5,21 +5,33 @@ import os
 
 class DataProcess(DataPull):
 
-    def __init__(self, saving_dir:str, instance:str, state_code:str="PR", debug:bool=False):
+    def __init__(self, saving_dir:str, debug:bool=False):
         self.saving_dir = saving_dir
-        self.state_code = state_code
         self.debug = debug
-        self.instance = instance
+        super().__init__(saving_dir=self.saving_dir)
         self.codes = json.load(open(self.saving_dir + "external/code_classification.json"))
 
-    def process_int_jp(self, time:str, types:str, group:bool=False) -> pl.LazyFrame:
+    def process_int_jp(self, time:str, types:str, group:bool=False, update:bool=False) -> pl.LazyFrame:
         switch = [time, types]
+        if not os.path.exists(self.saving_dir + "raw/jp_instance.parquet") or update:
+            self.pull_int_jp()
 
         if group:
             #return self.process_cat(switch=switch)
             raise NotImplementedError("Grouping not implemented yet")
         else:
             return self.process_data(switch=switch, base=self.process_jp_base())
+
+    def process_int_org(self, time:str, types:str, group:bool=False, update:bool=False) -> pl.LazyFrame:
+        switch = [time, types]
+        if not os.path.exists(self.saving_dir + "raw/int_instance.parquet") or update:
+            self.pull_int_org()
+
+        if group:
+            #return self.process_cat(switch=switch)
+            raise NotImplementedError("Grouping not implemented yet")
+        else:
+            return self.process_data(switch=switch, base=self.process_int_base())
 
     def process_data(self, switch:list, base:pl.lazyframe) -> pl.LazyFrame:
 
@@ -175,11 +187,7 @@ class DataProcess(DataPull):
                 raise ValueError(f"Invalid switch: {switch}")
 
     def process_jp_base(self) -> pl.LazyFrame:
-        if os.path.exists(self.saving_dir + "raw/jp_instance.parquet"):
-            df = pl.scan_parquet(self.saving_dir + "raw/jp_instance.parquet")
-        else:
-            super().__init__(saving_dir=self.saving_dir, state_code=self.state_code, instance=self.instance,  debug=self.debug)
-            df = pl.scan_parquet(self.saving_dir + "raw/jp_instance.parquet")
+        df = pl.scan_parquet(self.saving_dir + "raw/jp_instance.parquet")
 
         df = df.rename({"Year": "year", "Month": "month", "Country": "country", "Commodity_Code": "hs"})
         df = self.conversion(df)
@@ -189,7 +197,14 @@ class DataProcess(DataPull):
         return df
 
     def process_int_base(self) -> pl.LazyFrame:
-        raise NotImplementedError("Not implemented yet")
+        df = pl.scan_parquet(self.saving_dir + "raw/int_instance.parquet")
+
+        df = df.rename({"import_export": "Trade", "value": "data", "HTS": "hs"})
+        df = self.conversion(df)
+
+        df = df.with_columns(hs=pl.col("hs").cast(pl.String).str.zfill(10))
+ 
+        return df
 
     def process_cat(self, df:pl.DataFrame, switch:list):
 

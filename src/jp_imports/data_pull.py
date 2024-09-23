@@ -47,7 +47,7 @@ class DataPull:
             if not file.endswith(".parquet"):
                 os.remove(self.saving_dir + "raw/" + file)
 
-        df.write_parquet(self.saving_dir + "raw/int_org.parquet")
+        df.write_parquet(self.saving_dir + "raw/int_instance.parquet")
 
     def pull_int_jp(self) -> None:
 
