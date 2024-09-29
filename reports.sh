@@ -9,16 +9,24 @@ export _GIT_SINCE=$(date -d '1 week ago' '+%Y-%m-%d')
 # Clear output file
 echo "" >"$OUTPUT_FILE"
 
+# Function to check for commits in a branch
+has_commits() {
+  local branch="$1"
+  git rev-list --count --since="$_GIT_SINCE" "$branch" | grep -q '[1-9]'
+}
+
 # Function to generate reports for a specific branch
 generate_report_for_branch() {
   local branch="$1"
+
+  if ! has_commits "$branch"; then
+    return # Skip if no commits
+  fi
+
   {
     echo "=== Detailed Git Stats for Branch: $branch ==="
     git checkout "$branch" &>/dev/null
     git-quick-stats -T
-
-    echo ""
-    echo "=== Change Log for the Week on Branch: $branch ==="
     git-quick-stats -c
 
     # Only for the main branch

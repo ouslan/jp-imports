@@ -1,0 +1,76 @@
+
+=== Detailed Git Stats for Branch: main ===
+Contribution stats (by author) on the current branch:
+
+	 Alejandro Ouslan <alejandro.ouslan@upr.edu>:
+	  insertions:    396	(100%)
+	  deletions:     980	(100%)
+	  files:         19	(100%)
+	  commits:       5	(100%)
+	  lines changed: 1376	(100%)
+	  first commit:  Sun Sep 22 19:26:31 2024 -0400
+	  last commit:   Sun Sep 29 13:06:40 2024 -0400
+
+	total:
+	  insertions:    396	(100%)
+	  deletions:     980	(100%)
+	  files:         19	(100%)
+	  commits:       5	(100%)
+
+Git changelogs:
+
+
+[2024-09-29 - Sunday]
+ * added reporting logs (Alejandro Ouslan)
+
+[2024-09-23 - Monday]
+ * added reporting logs (Alejandro Ouslan)
+ * finish filter methode for agriculture products #26 (Alejandro Ouslan)
+ * implemented institute data souce function #26 (Alejandro Ouslan)
+ * remove exes files (Alejandro Ouslan)
+ * remove print statements #26 (Alejandro Ouslan)
+
+[2024-09-22 - Sunday]
+ * finish filter methode for agriculture products #26 (Alejandro Ouslan)
+ * implemented institute data souce function #26 (Alejandro Ouslan)
+ * remove exes files (Alejandro Ouslan)
+ * remove print statements #26 (Alejandro Ouslan)
+ * started agr filter #26 (Alejandro Ouslan)
+
+Branching tree view:
+
+* --+ Commit:  8d53994 
+|   | Date:    Sun, 29 Sep 2024 13:06:40 -0400 (9 minutes ago) 
+|   | Message: added reporting logs  (HEAD -> main, origin/main, origin/HEAD) 
+|   + Author:  Alejandro Ouslan 
+| 
+* --+ Commit:  d4026e9 
+|   | Date:    Mon, 23 Sep 2024 13:57:53 +0000 (6 days ago) 
+|   | Message: Merge pull request #27 from ouslan/26-agr  
+|   + Author:  Alejandro Ouslan 
+| 
+* --+ Commit:  fb1cd65 
+|   | Date:    Mon, 23 Sep 2024 13:57:44 +0000 (6 days ago) 
+|   | Message: Merge branch 'main' into 26-agr  
+|   + Author:  Alejandro Ouslan 
+| 
+* --+ Commit:  9ede476 
+|   | Date:    Mon, 23 Sep 2024 09:48:55 -0400 (6 days ago) 
+|   | Message: finish filter methode for agriculture products #26  (26-agr) 
+|   + Author:  Alejandro Ouslan 
+| 
+* --+ Commit:  39a28ce 
+|   | Date:    Mon, 23 Sep 2024 08:19:47 -0400 (6 days ago) 
+|   | Message: implemented institute data souce function #26  
+|   + Author:  Alejandro Ouslan 
+| 
+* --+ Commit:  b042057 
+|   | Date:    Sun, 22 Sep 2024 19:41:26 -0400 (7 days ago) 
+|   | Message: remove exes files  
+|   + Author:  Alejandro Ouslan 
+| 
+* --+ Commit:  aebfae1 
+    | Date:    Sun, 22 Sep 2024 19:26:31 -0400 (7 days ago) 
+    | Message: remove print statements #26  
+    + Author:  Alejandro Ouslan 
+------------------------------------------
