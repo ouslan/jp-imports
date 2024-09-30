@@ -1,0 +1,45 @@
+---
+title: "Agriculture processing"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+from dotenv import load_dotenv
+load_dotenv()
+```
+
+```{python}
+import polars as pl
+import requests
+from src.jp_imports.data_process import DataProcess
+from src.jp_imports.data_pull import DataPull
+d = DataProcess("data/")
+```
+
+```{python}
+# time series API: https://api.census.gov/data/timeseries.html
+key = os.getenv("CENSUS_API_KEY")
+base = 'https://api.census.gov/data/timeseries/'
+flow = 'intltrade/imports/statehs'
+param = 'CTY_CODE,CTY_NAME,STATE,MONTH'
+
+# date needs manual update from release schedule:
+# https://www.census.gov/foreign-trade/reference/release_schedule.html
+time = '2023' 
+
+url = f'{base}{flow}?get={param}&key={key}&time={time}'
+r = requests.get(url).json()
+```
+
+```{python}
+df = pl.DataFrame(r)
+names = df.select(pl.col("column_0")).transpose()
+df = df.drop("column_0").transpose()
+df = df.rename(names.to_dicts().pop()).sort(pl.col("CTY_NAME"))
+df.filter(pl.col("STATE")== "PR")
+```

@@ -19,12 +19,13 @@ d = DataProcess("data/")
 ```
 
 ```{python}
-time = "yearly"
-types = "total"
-d.process_int_org(time, types, True).collect()
+DataPull("data/").pull_census_hts(end_year=2018, start_year=2017, exports=False, state="VI")
+pl.read_parquet("/raw/census_hts_imports.parquet")
 ```
 
 ```{python}
+time = "yearly"
+types = "hs"
 d.process_int_org(time, types, False).collect()
 ```
 
