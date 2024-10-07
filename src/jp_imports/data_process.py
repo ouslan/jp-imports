@@ -336,6 +336,86 @@ class DataProcess(DataPull):
         else:
             return df
 
+    def process_price(self) -> pl.LazyFrame:
+        df = self.process_int_org("monthly", "hs")
+        df = df.with_columns(pl.col("imports_qty", "exports_qty").replace(0, 1))
+        df = df.with_columns(hs4=pl.col("hs").str.slice(0, 4))
+
+        df = df.group_by(pl.col("hs4", "month", "year")).agg(
+            pl.col("imports").sum().alias("imports"),
+            pl.col("exports").sum().alias("exports"), 
+            pl.col("imports_qty").sum().alias("imports_qty"), 
+            pl.col("exports_qty").sum().alias("exports_qty")
+        )
+
+        df = df.with_columns(
+            price_imports=pl.col("imports") / pl.col("imports_qty"),
+            price_exports=pl.col("exports") / pl.col("exports_qty")
+        )
+
+        df = df.with_columns(date=pl.datetime(pl.col("year"), pl.col("month"), 1))
+
+        # Sort the DataFrame by the date column
+        df = df.sort("date")
+
+        # Now you can safely use group_by_dynamic
+        result = df.with_columns(
+            pl.col("price_imports").rolling_mean(window_size=3, min_periods=1).over("hs4").alias("moving_price_imports"),
+            pl.col("price_exports").rolling_mean(window_size=3, min_periods=1).over("hs4").alias("moving_price_exports"), 
+            pl.col("price_imports").rolling_std(window_size=3, min_periods=1).over("hs4").alias("moving_price_imports_std"),
+            pl.col("price_exports").rolling_std(window_size=3, min_periods=1).over("hs4").alias("moving_price_exports_std"), 
+        )
+        results = result.with_columns(
+            pl.col("moving_price_imports").rank("ordinal").over("date").alias("rank_imports").cast(pl.Int64), 
+            pl.col("moving_price_exports").rank("ordinal").over("date").alias("rank_exports").cast(pl.Int64),
+            upper_band_imports = pl.col("moving_price_imports") + 2 * pl.col("moving_price_imports_std"),
+            lower_band_imports = pl.col("moving_price_imports") - 2 * pl.col("moving_price_imports_std"),
+            upper_band_exports = pl.col("moving_price_exports") + 2 * pl.col("moving_price_exports_std"),
+            lower_band_exports = pl.col("moving_price_exports") - 2 * pl.col("moving_price_exports_std"),
+            )
+        results = df.join(results, on=["date", "hs4"], how="left", validate="1:1")
+
+        # Assuming 'results' already has the necessary columns and is sorted by date and hs4
+        tmp = results.with_columns(
+            pl.col("moving_price_imports").pct_change().over("date", "hs4").alias("pct_change_imports")
+        ).sort(by=["date", "hs4"])
+
+        # To get the percentage change for the same month of the previous year
+        # First, create a column for the previous year's value
+        tmp = tmp.with_columns(
+            pl.when(pl.col("date").dt.year() > 1)  # Ensure there's a previous year to compare
+            .then(pl.col("moving_price_imports").shift(12))  # Shift by 12 months
+            .otherwise(None)
+            .alias("prev_year_imports"), 
+        )
+        tmp = tmp.with_columns(
+            pl.when(pl.col("date").dt.year() > 1)  # Ensure there's a previous year to compare
+            .then(pl.col("moving_price_exports").shift(12))  # Shift by 12 months
+            .otherwise(None)
+            .alias("prev_year_exports"), 
+        )
+        tmp = tmp.with_columns(
+            pl.when(pl.col("date").dt.year() > 1)  # Ensure there's a previous year to compare
+            .then(pl.col("rank_imports").shift(12))  # Shift by 12 months
+            .otherwise(None)
+            .alias("prev_year_rank_imports"), 
+        )
+        tmp = tmp.with_columns(
+            pl.when(pl.col("date").dt.year() > 1)  # Ensure there's a previous year to compare
+            .then(pl.col("rank_exports").shift(12))  # Shift by 12 months
+            .otherwise(None)
+            .alias("prev_year_rank_exports") 
+        )
+
+        # Now calculate the percentage change
+        tmp = tmp.with_columns(
+            ((pl.col("moving_price_imports") - pl.col("prev_year_imports")) / pl.col("prev_year_imports")).alias("pct_change_imports_year_over_year"),
+            ((pl.col("moving_price_exports") - pl.col("prev_year_exports")) / pl.col("prev_year_exports")).alias("pct_change_exports_year_over_year"),
+            (pl.col("rank_imports") - pl.col("prev_year_rank_imports")).alias("rank_imports_change_year_over_year"),
+            (pl.col("rank_exports").cast(pl.Int64) - pl.col("prev_year_rank_exports").cast(pl.Int64)).alias("rank_exports_change_year_over_year")
+        ).sort(by=["date", "hs4"])
+        return tmp
+        
     def process_cat(self, df:pl.DataFrame, switch:list):
 
         match switch:

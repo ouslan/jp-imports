@@ -15,11 +15,12 @@ load_dotenv()
 
 ```{python}
 import polars as pl
-import plotly.express as px
+import plotly.graph_objects as go
 import requests
 from src.jp_imports.data_process import DataProcess
 from src.jp_imports.data_pull import DataPull
 d = DataProcess("data/")
+df = d.process_price().collect()
 ```
 
 
@@ -49,13 +50,19 @@ df = df.with_columns(date=pl.datetime(pl.col("year"), pl.col("month"), 1))
 df = df.sort("date")
 
 # Now you can safely use group_by_dynamic
-result = df.group_by_dynamic("date", group_by="hs4", every="1m").agg(
-    pl.col("price_imports").mean().alias("moving_price_imports"),
-    pl.col("price_exports").mean().alias("moving_price_exports")
+result = df.with_columns(
+    pl.col("price_imports").rolling_mean(window_size=3, min_periods=1).over("hs4").alias("moving_price_imports"),
+    pl.col("price_exports").rolling_mean(window_size=3, min_periods=1).over("hs4").alias("moving_price_exports"), 
+    pl.col("price_imports").rolling_std(window_size=3, min_periods=1).over("hs4").alias("moving_price_imports_std"),
+    pl.col("price_exports").rolling_std(window_size=3, min_periods=1).over("hs4").alias("moving_price_exports_std"), 
 )
 results = result.with_columns(
     pl.col("moving_price_imports").rank("ordinal").over("date").alias("rank_imports").cast(pl.Int64), 
-    pl.col("moving_price_exports").rank("ordinal").over("date").alias("rank_exports").cast(pl.Int64)
+    pl.col("moving_price_exports").rank("ordinal").over("date").alias("rank_exports").cast(pl.Int64),
+    upper_band_imports = pl.col("moving_price_imports") + 2 * pl.col("moving_price_imports_std"),
+    lower_band_imports = pl.col("moving_price_imports") - 2 * pl.col("moving_price_imports_std"),
+    upper_band_exports = pl.col("moving_price_exports") + 2 * pl.col("moving_price_exports_std"),
+    lower_band_exports = pl.col("moving_price_exports") - 2 * pl.col("moving_price_exports_std"),
     )
 results = df.join(results, on=["date", "hs4"], how="left", validate="1:1")
 
@@ -99,15 +106,20 @@ tmp = tmp.with_columns(
     (pl.col("rank_exports").cast(pl.Int64) - pl.col("prev_year_rank_exports").cast(pl.Int64)).alias("rank_exports_change_year_over_year")
 ).sort(by=["date", "hs4"])
 tmp = tmp.collect()
-
-df2 = tmp.filter(pl.col("hs4") == "0202").sort("date")
-# Plot the data
-fig = px.line(df2, x="date", y="price_imports")
-fig.show()
+tmp
 ```
 
 ```{python}
-df2
+data = df.filter(pl.col("hs4") == "9880")
+# Create the figure with Bollinger Bands
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(x=data['date'], y=data['price_imports'], name='Value Growth'))
+fig.add_trace(go.Scatter(x=data['date'], y=data['moving_price_imports'], name='Mean'))
+fig.add_trace(go.Scatter(x=data['date'], y=data['upper_band_imports'], name='Upper'))
+fig.add_trace(go.Scatter(x=data['date'], y=data['lower_band_imports'], name='Lower'))
+
+fig.update_layout(title=f'Bollinger Bands for', xaxis_title='Date', yaxis_title='Value')
 ```
 
 ```{python}
