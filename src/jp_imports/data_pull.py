@@ -9,8 +9,21 @@ import os
 load_dotenv()
 
 class DataPull:
+    """
+    This class pulls data from the CENSUS and the Puerto Rico Institute of Statistics
+
+    """
 
     def __init__(self, saving_dir:str) -> None:
+        """
+        Parameters
+        ----------
+        saving_dir : str
+            The directory where the data will be saved.
+        Returns
+        -------
+        None
+        """
 
         self.saving_dir = saving_dir
 
@@ -28,6 +41,18 @@ class DataPull:
             os.makedirs(self.saving_dir + "external")
 
     def pull_int_org(self) -> None:
+        """
+        Pulls data from the Puerto Rico Institute of Statistics. Saves them in the 
+            raw directory as a parquet file.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
 
         self.pull_file(url="http://www.estadisticas.gobierno.pr/iepr/LinkClick.aspx?fileticket=JVyYmIHqbqc%3d&tabid=284&mid=244930", filename=(self.saving_dir + "raw/tmp.zip"))
         # Extract the zip file
@@ -52,7 +77,18 @@ class DataPull:
         df.write_parquet(self.saving_dir + "raw/int_instance.parquet")
 
     def pull_int_jp(self) -> None:
+        """
+        Pulls data from the Puerto Rico Institute of Statistics used by the JP.
+            Saved them in the raw directory as parquet files.
 
+        Parameters
+        ----------
+        None 
+
+        Returns
+        -------
+        None
+        """
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         url = "https://datos.estadisticas.pr/dataset/92d740af-97e4-4cb3-a990-2f4d4fa05324/resource/b4d10e3d-0924-498c-9c0d-81f00c958ca6/download/ftrade_all_iepr.csv"
@@ -62,6 +98,25 @@ class DataPull:
         os.remove(self.saving_dir + "raw/jp_instance.csv")
 
     def pull_census_hts(self, end_year:int, start_year:int, exports:bool, state:str) -> None:
+        """
+        Pulls HTS data from the Census and saves them in a parquet file.
+
+        Parameters
+        ----------
+        end_year: int
+            The last year to pull data from.
+        start_year: int
+            The first year to pull data from.
+        exports: bool
+            If True, pulls exports data. If False, pulls imports data.
+        state: str
+            The state to pull data from (e.g. "PR" for Puerto Rico).
+
+        Returns
+        -------
+        None
+        """
+
         empty_df = [
             pl.Series("date", dtype=pl.Datetime),
             pl.Series("census_value", dtype=pl.Int64),
@@ -101,6 +156,24 @@ class DataPull:
         census_df.write_parquet(saving_path)
 
     def pull_census_naics(self, end_year:int, start_year:int, exports:bool, state:str) -> None:
+        """
+        Pulls NAICS data from the Census and saves them in a parquet file.
+
+        Parameters
+        ----------
+        end_year: int
+            The last year to pull data from.
+        start_year: int
+            The first year to pull data from.
+        exports: bool
+            If True, pulls exports data. If False, pulls imports data.
+        state: str
+            The state to pull data from (e.g. "PR" for Puerto Rico).
+
+        Returns
+        -------
+        None
+        """
         empty_df = [
             pl.Series("date", dtype=pl.Datetime),
             pl.Series("census_value", dtype=pl.Int64),
@@ -140,6 +213,22 @@ class DataPull:
         census_df.write_parquet(saving_path)
 
     def pull_file(self, url:str, filename:str, verify:bool=True) -> None:
+        """
+        Pulls a file from a URL and saves it in the filename. Used by the class to pull external files.
+
+        Parameters
+        ----------
+        url: str
+            The URL to pull the file from.
+        filename: str
+            The filename to save the file to.
+        verify: bool
+            If True, verifies the SSL certificate. If False, does not verify the SSL certificate.
+
+        Returns
+        -------
+        None
+        """
         chunk_size = 10 * 1024 * 1024
 
         with requests.get(url, stream=True, verify=verify) as response:
