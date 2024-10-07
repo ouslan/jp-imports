@@ -4,8 +4,25 @@ import json
 import os
 
 class DataProcess(DataPull):
+    """
+    Data processing class for the various data sources in DataPull.
+    """
 
     def __init__(self, saving_dir:str, debug:bool=False):
+        """
+        Initialize the DataProcess class.
+
+        Parameters
+        ----------
+        saving_dir: str
+            Directory to save the data.
+        debug: bool
+            Will print debug information in the console if True.
+
+        Returns
+        -------
+        None
+        """
         self.saving_dir = saving_dir
         self.debug = debug
         super().__init__(saving_dir=self.saving_dir)
@@ -18,6 +35,25 @@ class DataProcess(DataPull):
             self.codes_agr.append(str(i).zfill(4))
 
     def process_int_jp(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> pl.LazyFrame:
+        """
+        Process the data for Puerto Rico Statistics Institute provided to JP.
+
+        Parameters
+        ----------
+        time: str
+            Time period to process the data. The options are "yearly", "qrt", and "monthly".
+        types: str
+            Type of data to process. The options are "total", "naics", "hs", and "country".
+        group: bool
+            Group the data by the classification. (Not implemented yet)
+        update: bool
+            Update the data from the source.
+
+        Returns
+        -------
+        pl.LazyFrame
+            Processed data. Requires df.collect() to view the data.
+        """
         switch = [time, types]
         if not os.path.exists(self.saving_dir + "raw/jp_instance.parquet") or update:
             self.pull_int_jp()
@@ -29,6 +65,25 @@ class DataProcess(DataPull):
             return self.process_data(switch=switch, base=self.process_jp_base(agr=agr))
 
     def process_int_org(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> pl.LazyFrame:
+        """
+        Process the data from Puerto Rico Statistics Institute.
+
+        Parameters
+        ----------
+        time: str
+            Time period to process the data. The options are "yearly", "qrt", and "monthly".
+        types: str
+            Type of data to process. The options are "total", "naics", "hs", and "country".
+        group: bool
+            Group the data by the classification. (Not implemented yet)
+        update: bool
+            Update the data from the source.
+
+        Returns
+        -------
+        pl.LazyFrame
+            Processed data. Requires df.collect() to view the data.
+        """
         switch = [time, types]
         if not os.path.exists(self.saving_dir + "raw/int_instance.parquet") or update:
             self.pull_int_org()
@@ -40,6 +95,23 @@ class DataProcess(DataPull):
             return self.process_data(switch=switch, base=self.process_int_base(agr=agr))
 
     def process_data(self, switch:list, base:pl.lazyframe) -> pl.LazyFrame:
+        """
+        Process the data based on the switch. Used for the process_int_jp and process_int_org methods 
+            to determine the aggregation of the data.
+
+        Parameters
+        ----------
+        switch: list
+            List of strings to determine the aggregation of the data based on the time and type from 
+            the process_int_jp and process_int_org methods.
+        base: pl.lazyframe
+            The pre-procesed and staderized data to process. This data comes from the process_int_jp and process_int_org methods.
+
+        Returns
+        -------
+        pl.LazyFrame
+            Processed data. Requires df.collect() to view the data.
+        """
 
         match switch:
             case ["yearly", "total"]:
@@ -210,6 +282,20 @@ class DataProcess(DataPull):
                 raise ValueError(f"Invalid switch: {switch}")
 
     def process_jp_base(self, agr:bool=False) -> pl.LazyFrame:
+        """
+        Process the data for Puerto Rico Statistics Institute provided to JP. Standardize the data and filter out 
+            the data that is not needed.
+
+        Parameters
+        ----------
+        agr: bool
+            Filter the data for agriculture only.
+
+        Returns
+        -------
+        pl.lazyframe
+            Processed data. Requires df.collect() to view the data.
+        """
         df = pl.scan_parquet(self.saving_dir + "raw/jp_instance.parquet")
 
         df = df.rename({"Year": "year", "Month": "month", "Country": "country", "Commodity_Code": "hs"})
@@ -224,6 +310,20 @@ class DataProcess(DataPull):
             return df
 
     def process_int_base(self, agr:bool=False) -> pl.LazyFrame:
+        """
+        Process the data from Puerto Rico Statistics Institute. Standardize the data and filter out
+            the data that is not needed.
+
+        Parameters
+        ----------
+        agr: bool
+            Filter the data for agriculture only.
+
+        Returns
+        -------
+        pl.lazyframe
+            Processed data. Requires df.collect() to view the data.
+        """
         df = pl.scan_parquet(self.saving_dir + "raw/int_instance.parquet")
 
         df = df.rename({"import_export": "Trade", "value": "data", "HTS": "hs"})
@@ -251,6 +351,21 @@ class DataProcess(DataPull):
                     pass
 
     def filter_data(self, df:pl.DataFrame, filter:list) -> pl.DataFrame:
+        """
+        Filter the data based on the filter list.
+
+        Parameters
+        ----------
+        df: pl.DataFrame
+            Data to filter.
+        filter: List
+            List of columns to filter the data.
+
+        Returns
+        -------
+        pl.DataFrame
+            data to be filtered.
+        """
         imports = df.filter(pl.col("Trade") == "i").group_by(filter).agg(
             pl.sum("data", "qty")).sort(filter).rename({"data": "imports", "qty": "imports_qty"})
         exports = df.filter(pl.col("Trade") == "e").group_by(filter).agg(
@@ -259,6 +374,19 @@ class DataProcess(DataPull):
         return imports.join(exports, on=filter, how="full", validate="1:1")
 
     def conversion(self, df:pl.LazyFrame) -> pl.LazyFrame:
+        """
+        Convert the data to the correct units (kg).
+
+        Parameters
+        ----------
+        df: pl.LazyFrame
+            Data to convert.
+
+        Returns
+        -------
+        pl.LazyFrame
+            Converted data.
+        """
 
         df = df.with_columns(pl.col("qty_1", "qty_2").fill_null(strategy="zero"))
         df = df.with_columns(conv_1=pl.when(pl.col("unit_1").str.to_lowercase() == "kg").then(pl.col("qty_1") * 1)
