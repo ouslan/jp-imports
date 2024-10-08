@@ -20,7 +20,10 @@ import requests
 from src.jp_imports.data_process import DataProcess
 from src.jp_imports.data_pull import DataPull
 d = DataProcess("data/")
-df = d.process_price().collect()
+```
+
+```{python}
+d.process_price().collect()
 ```
 
 
@@ -110,7 +113,7 @@ tmp
 ```
 
 ```{python}
-data = df.filter(pl.col("hs4") == "9880")
+data = df.filter(pl.col("hs4") == "9880").
 # Create the figure with Bollinger Bands
 fig = go.Figure()
 
@@ -123,9 +126,27 @@ fig.update_layout(title=f'Bollinger Bands for', xaxis_title='Date', yaxis_title=
 ```
 
 ```{python}
-df = pl.DataFrame(r)
-names = df.select(pl.col("column_0")).transpose()
-df = df.drop("column_0").transpose()
-df = df.rename(names.to_dicts().pop()).sort(pl.col("CTY_NAME"))
-df.filter(pl.col("STATE")== "PR")
+import pandas as pd
+import plotly.figure_factory as ff
+
+# Assuming 'tmp' is your final DataFrame after all calculations
+# Convert the Polars DataFrame to a Pandas DataFrame for Plotly
+df_plot = tmp.filter(pl.col("hs4") == "9880").select().to_pandas()
+.filter(pl.col("hs4") == "9880")
+# Select relevant columns for the table
+table_data = df_plot[['date', 'hs4', 'moving_price_imports', 'moving_price_exports',
+                      'pct_change_imports_year_over_year', 'pct_change_exports_year_over_year',
+                      'rank_imports', 'rank_exports']]
+
+# Create a Plotly table
+fig = ff.create_table(table_data)
+
+# Update layout
+fig.update_layout(
+    title='Trade Data Overview',
+    height=600,
+)
+
+# Show the figure
+fig.show()
 ```

@@ -336,8 +336,8 @@ class DataProcess(DataPull):
         else:
             return df
 
-    def process_price(self) -> pl.LazyFrame:
-        df = self.process_int_org("monthly", "hs")
+    def process_price(self, agr:bool=False) -> pl.LazyFrame:
+        df = self.process_int_org("monthly", "hs", agr)
         df = df.with_columns(pl.col("imports_qty", "exports_qty").replace(0, 1))
         df = df.with_columns(hs4=pl.col("hs").str.slice(0, 4))
 
