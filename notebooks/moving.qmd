@@ -1,0 +1,43 @@
+---
+title: "Moving price graph"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+from dotenv import load_dotenv
+load_dotenv()
+```
+
+```{python}
+from src.jp_imports.data_process import DataProcess
+from src.jp_imports.data_pull import DataPull
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
+from datetime import datetime
+import plotly.express as px
+import polars as pl
+import requests
+
+d = DataProcess("data/")
+```
+
+```{python}
+time = "monthly"
+types = "hs"
+df = d.process_int_org(time, types, False).collect()
+df
+```
+```{python}
+main = df.filter((pl.col("rank_imports") <= 5) & (pl.col("date") ==  datetime(2020, 1, 1))).sort("rank_imports")
+main
+```
+
+```{python}
+fig = px.bar(main, y='hs4', x='moving_price_imports', text_auto='.2s')
+fig.show()
+```

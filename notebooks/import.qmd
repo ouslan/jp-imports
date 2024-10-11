@@ -35,5 +35,11 @@ pull.pull_int_jp()
 ```
 
 ```{python}
-con = ibis.connect(pull.database_url)
+pl.DataFrame(select_all_jp_trade_data(pull.engine))
+```
+
+```{python}
+query = "SELECT * FROM jptradedata"
+
+pl.read_database(query=query, connection=pull.engine)
 ```
