@@ -1,3 +1,5 @@
+from ..dao.jp_imports_raw import select_all_jp_trade_data
+from sqlalchemy.exc import OperationalError
 from .data_pull import DataPull
 import polars as pl
 import json
@@ -55,7 +57,7 @@ class DataProcess(DataPull):
             Processed data. Requires df.collect() to view the data.
         """
         switch = [time, types]
-        if not os.path.exists(self.saving_dir + "raw/jp_instance.parquet") or update:
+        if not os.path.exists(self.saving_dir + "raw/jp_instance.csv") or update:
             self.pull_int_jp()
 
         if group:
@@ -296,6 +298,15 @@ class DataProcess(DataPull):
         pl.lazyframe
             Processed data. Requires df.collect() to view the data.
         """
+        try: 
+            df = pl.DataFrame(select_all_jp_trade_data(self.engine))
+            if df.is_empty():
+                self.pull_int_jp()
+                df = pl.DataFrame(select_all_jp_trade_data(self.engine))
+
+        except OperationalError:
+            self.pull_int_jp()
+            df = pl.DataFrame(select_all_jp_trade_data(self.engine))
         df = pl.scan_parquet(self.saving_dir + "raw/jp_instance.parquet")
 
         df = df.rename({"Year": "year", "Month": "month", "Country": "country", "Commodity_Code": "hs"})

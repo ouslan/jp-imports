@@ -1,3 +1,6 @@
+from sqlalchemy.exc import OperationalError
+from ..dao.jp_imports_raw import create_jp_trade_data_table
+from sqlmodel import create_engine
 from dotenv import load_dotenv
 from tqdm import tqdm
 import polars as pl
@@ -14,7 +17,7 @@ class DataPull:
 
     """
 
-    def __init__(self, saving_dir:str) -> None:
+    def __init__(self, database_url:str='sqlite:///db.sqlite', saving_dir:str='data/'  ) -> None:
         """
         Parameters
         ----------
@@ -25,6 +28,8 @@ class DataPull:
         None
         """
 
+        self.database_url = database_url
+        self.engine = create_engine(self.database_url)
         self.saving_dir = saving_dir
 
         if not os.path.exists(self.saving_dir + "external/code_classification.json"):
@@ -76,7 +81,7 @@ class DataPull:
 
         df.write_parquet(self.saving_dir + "raw/int_instance.parquet")
 
-    def pull_int_jp(self) -> None:
+    def pull_int_jp(self, update:bool=False) -> None:
         """
         Pulls data from the Puerto Rico Institute of Statistics used by the JP.
             Saved them in the raw directory as parquet files.
@@ -89,13 +94,19 @@ class DataPull:
         -------
         None
         """
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        create_jp_trade_data_table(self.engine)
+        if not os.path.exists(self.saving_dir + "raw/jp_instance.csv") or update:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-        url = "https://datos.estadisticas.pr/dataset/92d740af-97e4-4cb3-a990-2f4d4fa05324/resource/b4d10e3d-0924-498c-9c0d-81f00c958ca6/download/ftrade_all_iepr.csv"
-        self.pull_file(url=url, filename=(self.saving_dir + "raw/jp_instance.csv"), verify=False)
+            url = "https://datos.estadisticas.pr/dataset/92d740af-97e4-4cb3-a990-2f4d4fa05324/resource/b4d10e3d-0924-498c-9c0d-81f00c958ca6/download/ftrade_all_iepr.csv"
+            self.pull_file(url=url, filename=(self.saving_dir + "raw/jp_instance.csv"), verify=False)
         jp_df = pl.read_csv(self.saving_dir + "raw/jp_instance.csv", ignore_errors=True)
-        jp_df.write_parquet(self.saving_dir + "raw/jp_instance.parquet")
-        os.remove(self.saving_dir + "raw/jp_instance.csv")
+        jp_df = jp_df.rename({col: col.lower() for col in jp_df.columns})
+        jp_df = jp_df.rename({"commodity_code": "hs", "districtdesc": "district_desc", "districtposhdesc": "district_posh_desc"})
+        jp_df = jp_df.with_columns(id=pl.col("data").rank().cast(pl.Int64))
+
+        jp_df.write_database(table_name="jptradedata", connection=self.database_url, if_table_exists="replace", engine="adbc")
+        #os.remove(self.saving_dir + "raw/jp_instance.csv")
 
     def pull_census_hts(self, end_year:int, start_year:int, exports:bool, state:str) -> None:
         """
