@@ -1,15 +1,12 @@
 from sqlalchemy.exc import OperationalError
-from ..dao.jp_imports_raw import create_jp_trade_data_table
+from ..dao.jp_imports_raw import create_trade_tables
 from sqlmodel import create_engine
-from dotenv import load_dotenv
 from tqdm import tqdm
 import polars as pl
 import requests
 import zipfile
 import urllib3
 import os
-
-load_dotenv()
 
 class DataPull:
     """
@@ -94,7 +91,7 @@ class DataPull:
         -------
         None
         """
-        create_jp_trade_data_table(self.engine)
+        create_trade_tables(self.engine)
         if not os.path.exists(self.saving_dir + "raw/jp_instance.csv") or update:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -102,7 +99,9 @@ class DataPull:
             self.pull_file(url=url, filename=(self.saving_dir + "raw/jp_instance.csv"), verify=False)
         jp_df = pl.read_csv(self.saving_dir + "raw/jp_instance.csv", ignore_errors=True)
         jp_df = jp_df.rename({col: col.lower() for col in jp_df.columns})
-        jp_df = jp_df.rename({"commodity_code": "hs", "districtdesc": "district_desc", "districtposhdesc": "district_posh_desc"})
+        country = jp_df.select(pl.col("cty_code", "country")).unique().rename({"cty_code": "id"})
+        jp_df = jp_df.rename({"commodity_code": "hs", "districtdesc": "district_desc", "districtposhdesc": "district_posh_desc", "cty_code":"country_id"})
+        jp_df = jp_df.select(pl.all().exclude("country"))
         jp_df = jp_df.with_columns(id=pl.col("data").rank().cast(pl.Int64))
 
         jp_df.write_database(table_name="jptradedata", connection=self.database_url, if_table_exists="replace", engine="adbc")

@@ -5,12 +5,13 @@ import polars as pl
 import json
 import os
 
+
 class DataProcess(DataPull):
     """
     Data processing class for the various data sources in DataPull.
     """
 
-    def __init__(self, saving_dir:str, debug:bool=False):
+    def __init__(self, database_url:str='sqlite:///db.sqlite', saving_dir:str="data/", debug:bool=False):
         """
         Initialize the DataProcess class.
 
@@ -27,7 +28,7 @@ class DataProcess(DataPull):
         """
         self.saving_dir = saving_dir
         self.debug = debug
-        super().__init__(saving_dir=self.saving_dir)
+        super().__init__(database_url=database_url, saving_dir=self.saving_dir)
         self.codes = json.load(open(self.saving_dir + "external/code_classification.json"))
         self.codes_agr = []
 
@@ -283,7 +284,7 @@ class DataProcess(DataPull):
             case _:
                 raise ValueError(f"Invalid switch: {switch}")
 
-    def process_jp_base(self, agr:bool=False) -> pl.LazyFrame:
+    def process_jp_base(self, exports:bool=False, agr:bool=False) -> pl.DataFrame:
         """
         Process the data for Puerto Rico Statistics Institute provided to JP. Standardize the data and filter out 
             the data that is not needed.
@@ -307,20 +308,18 @@ class DataProcess(DataPull):
         except OperationalError:
             self.pull_int_jp()
             df = pl.DataFrame(select_all_jp_trade_data(self.engine))
-        df = pl.scan_parquet(self.saving_dir + "raw/jp_instance.parquet")
-
-        df = df.rename({"Year": "year", "Month": "month", "Country": "country", "Commodity_Code": "hs"})
         df = self.conversion(df)
+
+        if exports:
+            df = df.filter(pl.col("trade")== "e")
+        if agr:
+            df = df.filter(pl.col("hs").str.slice(0, 4).is_in(self.codes_agr))
 
         df = df.with_columns(hs=pl.col("hs").cast(pl.String).str.replace("'", "").str.zfill(10))
         df = df.filter(pl.col("naics") != "RETURN")
+        return df
 
-        if agr:
-            return df.filter(pl.col("hs").str.slice(0, 4).is_in(self.codes_agr))
-        else:
-            return df
-
-    def process_int_base(self, agr:bool=False) -> pl.LazyFrame:
+    def process_int_base(self, agr:bool=False) -> pl.DataFrame:
         """
         Process the data from Puerto Rico Statistics Institute. Standardize the data and filter out
             the data that is not needed.
@@ -338,7 +337,7 @@ class DataProcess(DataPull):
         df = pl.scan_parquet(self.saving_dir + "raw/int_instance.parquet")
 
         df = df.rename({"import_export": "Trade", "value": "data", "HTS": "hs"})
-        df = self.conversion(df)
+        df = self.conversion(df.collect())
 
         df = df.with_columns(hs=pl.col("hs").cast(pl.String).str.replace("'", "").str.zfill(10))
 
@@ -464,7 +463,7 @@ class DataProcess(DataPull):
 
         return imports.join(exports, on=filter, how="full", validate="1:1")
 
-    def conversion(self, df:pl.LazyFrame) -> pl.LazyFrame:
+    def conversion(self, df:pl.DataFrame) -> pl.DataFrame:
         """
         Convert the data to the correct units (kg).
 

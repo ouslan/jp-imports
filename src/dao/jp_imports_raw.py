@@ -6,11 +6,10 @@ class JPTradeData(SQLModel, table=True):
     trade: str
     year: int
     month: int
-    hs: str
+    hs: int
     commodity_short_name: str
     commodity_description: str
-    cty_code: int
-    country: str
+    country_id: int | None = Field(default=None, foreign_key="countrytable.id")
     subcountry_code: str
     district: str
     district_desc: str
@@ -46,11 +45,14 @@ class JPTradeData(SQLModel, table=True):
     cnt_cha_mo: int
     rev_data: str
 
+class CountryTable(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    constry_name: str
 
-def create_jp_trade_data_table(engine):
+def create_trade_tables(engine):
     SQLModel.metadata.create_all(engine)
 
 def select_all_jp_trade_data(engine):
     with Session(engine) as session:
-        statement = select(JPTradeData)
+        statement = select(JPTradeData).limit(1000)
         return session.exec(statement).all()
