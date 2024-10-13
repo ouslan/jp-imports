@@ -1,58 +1,74 @@
 from sqlmodel import Field, Session, SQLModel, select
+from datetime import datetime
 from typing import Optional
 
 class JPTradeData(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    trade: str
-    year: int
-    month: int
-    hs: int
-    commodity_short_name: str
-    commodity_description: str
-    country_id: int | None = Field(default=None, foreign_key="countrytable.id")
-    subcountry_code: str
-    district: str
-    district_desc: str
-    district_posh: str
-    district_posh_desc: str
+    id: int = Field(primary_key=True)
+    date: datetime = Field(default_factory=datetime.utcnow, index=True)
+    trade_id: Optional[int] = Field(default=None, foreign_key="tradetable.id")
+    hts_id: Optional[int] = Field(default=None, foreign_key="htstable.id")
+    country_id: Optional[int] = Field(default=None, foreign_key="countrytable.id")
+    district_id: Optional[int] = Field(default=None, foreign_key="districttable.id")
+    sitc_id: Optional[int] = Field(default=None, foreign_key="sitctable.id")
+    naics_id: Optional[int] = Field(default=None, foreign_key="naicstable.id")
     data: int
-    sitc: str
-    sitc_short_desc: str
-    sitc_long_desc: str
-    naics: str
-    naics_description: str
-    end_use_i: str
-    end_use_e: str
-    hts_desc: str
-    unit_1: str
+    end_use_i: Optional[int] = Field(default=None)
+    end_use_e: Optional[int] = Field(default=None)
+    unit_id: Optional[int] = Field(default=None, foreign_key="unittable.id")
     qty_1: int
-    unit_2: str
-    qty_2: int
-    ves_val_mo: int
-    ves_wgt_mo: int
-    cards_mo: int
-    air_val_mo: int
-    air_wgt_mo: int
-    dut_val_mo: int
-    cal_dut_mo: int
-    con_cha_mo: int
-    con_cif_mo: int
-    gen_val_mo: int
-    gen_cha_mo: int
-    gen_cif_mo: int
-    air_cha_mo: int
-    ves_cha_mo: int
-    cnt_cha_mo: int
-    rev_data: str
 
 class CountryTable(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    constry_name: str
+    id: int = Field(primary_key=True)
+    cty_code: str
+    country_name: str
+
+class HTSTable(SQLModel, table=True):
+    id: Optional[int] = Field(primary_key=True)
+    hts_code: str
+    hts_short_desc: str
+    hts_long_desc: str
+
+class SITCTable(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    sitc_code: str
+    sitc_short_desc: str
+    sitc_long_desc: str
+
+class NAICSTable(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    naics_code: str
+    naics_description: str
+
+class TradeTable(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    trade: str
+
+class DistrictTable(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    district_code: str
+    district_desc: str
+
+class UnitTable(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    unit_code: str
 
 def create_trade_tables(engine):
+    SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
+    create_trade(engine)
+
+def create_trade(engine):
+    imports = TradeTable(id=1, trade="Imports")
+    exports = TradeTable(id=2, trade="Exports")
+    with Session(engine) as session:
+        session.add_all([imports, exports])
+        session.commit()
 
 def select_all_jp_trade_data(engine):
     with Session(engine) as session:
-        statement = select(JPTradeData).limit(1000)
+        statement = select(JPTradeData)
         return session.exec(statement).all()
+
+def create_hypertable(engine):
+    with engine.connect() as conn:
+        conn.execute("SELECT create_hypertable('jp_trade_data', 'date', if_not_exists => TRUE, chunk_time_interval => interval '1 month');")

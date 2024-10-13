@@ -14,26 +14,89 @@ load_dotenv()
 ```
 
 ```{python}
+from src.dao.jp_imports_raw import create_trade_tables
+from sqlmodel import create_engine
+from datetime import datetime
 import polars as pl
-import ibis
-import plotly.graph_objects as go
-import requests
-from src.jp_imports.data_process import DataProcess
-from src.dao.jp_imports_raw import *
-from src.jp_imports.data_pull import DataPull
-d = DataProcess("postgresql://postgres:password@localhost:5433/timescaledb","data/")
-pull = DataPull(os.environ.get("DATABASE_URL"))
+import pandas as pd
 ```
 
 ```{python}
-d.process_jp_base()
+engine = create_engine("postgresql://postgres:password@localhost:5432/timescaledb")
+database_url = "postgresql://postgres:password@localhost:5432/timescaledb"
+create_trade_tables(engine)
+```
+
+```{python}
+# Load the data
+jp_df = pl.read_csv("data/raw/jp_instance.csv", ignore_errors=True)
+
+# Normalize column names
+jp_df = jp_df.rename({col: col.lower() for col in jp_df.columns})
+jp_df = jp_df.with_columns(date=pl.col("year").cast(pl.String) + "-" + pl.col("month").cast(pl.String) + "-01")
+jp_df = jp_df.with_columns(pl.col("date").cast(pl.Date))
+jp_df = jp_df.with_columns(unit_1=pl.col("unit_1").str.to_lowercase())
+jp_df = jp_df.with_columns(trade=pl.when(pl.col("trade") == "i").then(1).otherwise(2)).rename({"trade": "trade_id"})
+
+jp_df = jp_df.with_columns(
+      sitc=pl.when(pl.col("sitc_short_desc").str.starts_with("Civilian")).then(9998)
+                .when(pl.col("sitc_short_desc").str.starts_with("-")).then(9999).otherwise(pl.col("sitc"))
+)
+jp_df = jp_df.filter(pl.col("commodity_code").is_not_null())
+# Create the country DataFrame with unique entries
+country = jp_df.select(pl.col("cty_code", "country")).unique().rename({"country": "country_name"}).with_columns(
+    id=pl.col("cty_code").rank().cast(pl.Int64)
+)
+hts = jp_df.select(pl.col("commodity_code", "commodity_short_name", "commodity_description")).unique()
+hts = hts.rename({
+  "commodity_code": "hts_code",
+  "commodity_short_name": "hts_short_desc",
+  "commodity_description": "hts_long_desc"
+}).with_columns(id=pl.col("hts_code").rank().cast(pl.Int64))
+
+# Create the sitc DataFrame
+sitc = jp_df.select(pl.col("sitc", "sitc_short_desc", "sitc_long_desc")).unique().rename({"sitc": "sitc_code"}).with_columns(
+    id=pl.col("sitc_code").rank().cast(pl.Int64)
+)
+
+naics = jp_df.select(pl.col("naics", "naics_description")).unique().rename({"naics": "naics_code"}).with_columns(
+    id=pl.col("naics_code").rank().cast(pl.Int64)
+)
+
+distric = jp_df.select(pl.col("district_posh", "districtposhdesc")).unique().rename({"district_posh": "district_code", "districtposhdesc": "district_desc"}).with_columns(
+    id=pl.col("district_code").rank().cast(pl.Int64)
+)
+
+unit = jp_df.select(pl.col("unit_1")).unique().rename({"unit_1": "unit_code"}).with_columns(
+    id=pl.col("unit_code").rank().cast(pl.Int64)
+)
+
+# Join jp_df with country to replace country_id
+jp_df = jp_df.join(country, on="cty_code", how="left").rename({"id": "country_id"})
+jp_df = jp_df.join(sitc, left_on="sitc", right_on="sitc_code", how="left").rename({"id": "sitc_id"})
+jp_df = jp_df.join(hts, left_on="commodity_code", right_on="hts_code", how="left").rename({"id": "hts_id"})
+jp_df = jp_df.join(naics, left_on="naics", right_on="naics_code", how="left").rename({"id": "naics_id"})
+jp_df = jp_df.join(distric, left_on="district_posh", right_on="district_code", how="left").rename({"id": "district_id"})
+jp_df = jp_df.join(unit, left_on="unit_1", right_on="unit_code", how="left").rename({"id": "unit_id"})
+
+
+jp_df = jp_df.select(pl.col("date", "trade_id", "country_id", "sitc_id", "hts_id", "naics_id", "district_id", "unit_id", "data", "end_use_i", "end_use_e", "qty_1"))
+
+jp_df
+```
+
+```{python}
+country.write_database(table_name="countrytable", connection=database_url, if_table_exists="append")
+sitc.write_database(table_name="sitctable", connection=database_url, if_table_exists="append")
+hts.write_database(table_name="htstable", connection=database_url, if_table_exists="append")
+naics.write_database(table_name="naicstable", connection=database_url, if_table_exists="append")
+distric.write_database(table_name="districttable", connection=database_url, if_table_exists="append")
+unit.write_database(table_name="unittable", connection=database_url, if_table_exists="append")
+jp_df.write_database(table_name="jptradedata", connection=database_url, if_table_exists="append")
 ```
 
 
 ```{python}
-pull.pull_int_jp()
-```
-
-```{python}
-pl.DataFrame(select_all_jp_trade_data(pull.engine))
+jp_df.filter(pl.col("naics_id")== 38)
+naics.filter(pl.col("id") == 38)
 ```

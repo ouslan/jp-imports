@@ -97,14 +97,19 @@ class DataPull:
 
             url = "https://datos.estadisticas.pr/dataset/92d740af-97e4-4cb3-a990-2f4d4fa05324/resource/b4d10e3d-0924-498c-9c0d-81f00c958ca6/download/ftrade_all_iepr.csv"
             self.pull_file(url=url, filename=(self.saving_dir + "raw/jp_instance.csv"), verify=False)
+        
+        # Prepare to insert to database
         jp_df = pl.read_csv(self.saving_dir + "raw/jp_instance.csv", ignore_errors=True)
         jp_df = jp_df.rename({col: col.lower() for col in jp_df.columns})
-        country = jp_df.select(pl.col("cty_code", "country")).unique().rename({"cty_code": "id"})
+
+        country = jp_df.select(pl.col("cty_code", "country")).unique().rename({"cty_code": "id", "country": "country_name"})
         jp_df = jp_df.rename({"commodity_code": "hs", "districtdesc": "district_desc", "districtposhdesc": "district_posh_desc", "cty_code":"country_id"})
         jp_df = jp_df.select(pl.all().exclude("country"))
-        jp_df = jp_df.with_columns(id=pl.col("data").rank().cast(pl.Int64))
 
-        jp_df.write_database(table_name="jptradedata", connection=self.database_url, if_table_exists="replace", engine="adbc")
+        # Database inserts
+        country.write_database(table_name="countrytable", connection=self.database_url, if_table_exists="append")
+        print(jp_df)
+        jp_df.write_database(table_name="jptradedata", connection=self.database_url, if_table_exists="append")
         #os.remove(self.saving_dir + "raw/jp_instance.csv")
 
     def pull_census_hts(self, end_year:int, start_year:int, exports:bool, state:str) -> None:
