@@ -301,37 +301,12 @@ class DataProcess(DataPull):
             case _:
                 raise ValueError(f"Invalid switch: {switch}")
 
-    def process_int_base(self, agr:bool=False) -> pl.DataFrame:
-        """
-        Process the data from Puerto Rico Statistics Institute. Standardize the data and filter out
-            the data that is not needed.
-
-        Parameters
-        ----------
-        agr: bool
-            Filter the data for agriculture only.
-
-        Returns
-        -------
-        pl.lazyframe
-            Processed data. Requires df.collect() to view the data.
-        """
-        df = pl.scan_parquet(self.saving_dir + "raw/int_instance.parquet")
-
-        df = df.rename({"import_export": "Trade", "value": "data", "HTS": "hts_id"})
-        df = self.conversion(df.collect())
-
-        df = df.with_columns(hts_id=pl.col("hts_id").cast(pl.String).str.replace("'", "").str.zfill(10))
-
-        if agr:
-            return df.filter(pl.col("hts_id").str.slice(0, 4).is_in(self.codes_agr))
-        else:
-            return df
-
     def process_price(self, agr:bool=False) -> pl.LazyFrame:
-        df = self.process_int_org("monthly", "hts_id", agr)
+        df = self.process_int_org("monthly", "hts", agr)
+        hts = self.conn.table("htstable").to_polars()
+        df = df.join(hts, left_on="hts_id", right_on="id")
         df = df.with_columns(pl.col("imports_qty", "exports_qty").replace(0, 1))
-        df = df.with_columns(hs4=pl.col("hs").str.slice(0, 4))
+        df = df.with_columns(hs4=pl.col("hts_code").str.slice(0, 4))
 
         df = df.group_by(pl.col("hs4", "month", "year")).agg(
             pl.col("imports").sum().alias("imports"),
@@ -438,6 +413,7 @@ class DataProcess(DataPull):
         pl.DataFrame
             data to be filtered.
         """
+        df = df.filter(pl.col("hts_id").is_not_null())
         imports = df.filter(pl.col("trade_id") == 1).group_by(filter).agg(
             pl.sum("data", "qty")).sort(filter).rename({"data": "imports", "qty": "imports_qty"})
         exports = df.filter(pl.col("trade_id") == 2).group_by(filter).agg(

@@ -16,28 +16,40 @@ load_dotenv()
 ```{python}
 from src.jp_imports.data_process import DataProcess
 from src.jp_imports.data_pull import DataPull
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
+# from plotly.subplots import make_subplots
+# import plotly.graph_objects as go
 from datetime import datetime
-import plotly.express as px
+# import plotly.express as px
 import polars as pl
-import requests
+import ibis
 
-d = DataProcess("data/")
+d = DataProcess()
+conn = ibis.sqlite.connect("db.sqlite")
 ```
 
 ```{python}
 time = "monthly"
-types = "hs"
-df = d.process_int_org(time, types, False).collect()
+types = "hts"
+df = d.process_int_org(time, types)
 df
-```
-```{python}
-main = df.filter((pl.col("rank_imports") <= 5) & (pl.col("date") ==  datetime(2020, 1, 1))).sort("rank_imports")
-main
 ```
 
 ```{python}
-fig = px.bar(main, y='hs4', x='moving_price_imports', text_auto='.2s')
-fig.show()
+d.pull_int_org()
+```
+
+```{python}
+df = conn.table("inttradedata").to_polars()
+```
+
+```{python}
+df = conn.table("inttradedata")
+units = conn.table("unittable")
+df = df.join(units, df.unit1_id == units.id).rename(unit_1="unit_code")
+df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code")
+
+df = df.to_polars()
+df = df.with_columns(year=pl.col("date").dt.year(), month=pl.col("date").dt.month())
+df = d.conversion(df)
+df
 ```

@@ -41,7 +41,7 @@ d.process_data(switch=switch, base=df2)
 ```
 
 ```{python}
-df = d.process_int_org("fiscal", "hts")
+df = d.process_price("fiscal", "hts")
 df
 ```
 

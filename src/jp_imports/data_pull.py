@@ -91,6 +91,7 @@ class DataPull:
         int_df = int_df.rename({col: col.lower() for col in int_df.collect_schema().names()})
         int_df = int_df.with_columns(date=pl.col("year").cast(pl.String) + "-" + pl.col("month").cast(pl.String) + "-01",
                                      unit_1=pl.col("unit_1").str.to_lowercase(),
+                                     unit_2=pl.col("unit_2").str.to_lowercase(),
                                      commodity_code=pl.col("hts").cast(pl.String).str.zfill(10).str.replace("'", ""),
                                      trade_id=pl.when(pl.col("import_export") == "i").then(1).otherwise(2)).rename({"value": "data"})
 
@@ -134,6 +135,7 @@ class DataPull:
         jp_df = jp_df.rename({col: col.lower() for col in jp_df.collect_schema().names()})
         jp_df = jp_df.with_columns(date=pl.col("year").cast(pl.String) + "-" + pl.col("month").cast(pl.String) + "-01",
                                    unit_1=pl.col("unit_1").str.to_lowercase(),
+                                   unit_2=pl.col("unit_2").str.to_lowercase(),
                                    commodity_code=pl.col("commodity_code").cast(pl.String).str.zfill(10),
                                    trade=pl.when(pl.col("trade") == "i").then(1).otherwise(2)).rename({"trade": "trade_id"})
 
