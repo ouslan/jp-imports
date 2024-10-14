@@ -1,5 +1,5 @@
-from sqlalchemy.exc import OperationalError
 from ..dao.jp_imports_raw import create_trade_tables
+from sqlalchemy.exc import OperationalError
 from sqlmodel import create_engine
 from tqdm import tqdm
 import polars as pl
@@ -32,7 +32,7 @@ class DataPull:
         if self.database_url.startswith("sqlite"):
             self.conn = ibis.sqlite.connect(self.database_url.replace("sqlite:///", ""))
         else:
-            self.conn = ibis.postgres.connect(url=self.database_url)
+            self.conn = ibis.connect(self.database_url)
 
         if not os.path.exists(self.saving_dir + "external/code_classification.json"):
             self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_classification.json", filename=(self.saving_dir + "external/code_classification.json"))
@@ -60,28 +60,52 @@ class DataPull:
         -------
         None
         """
+        if not os.path.exists(self.saving_dir + "raw/IMPORT_HTS10_ALL.csv") or not os.path.exists(self.saving_dir + "raw/EXPORT_HTS10_ALL.csv"):
+            self.pull_file(url="http://www.estadisticas.gobierno.pr/iepr/LinkClick.aspx?fileticket=JVyYmIHqbqc%3d&tabid=284&mid=244930", filename=(self.saving_dir + "raw/tmp.zip"))
+            # Extract the zip file
+            with zipfile.ZipFile(self.saving_dir + "raw/tmp.zip", "r") as zip_ref:
+                zip_ref.extractall(f"{self.saving_dir}raw/")
 
-        self.pull_file(url="http://www.estadisticas.gobierno.pr/iepr/LinkClick.aspx?fileticket=JVyYmIHqbqc%3d&tabid=284&mid=244930", filename=(self.saving_dir + "raw/tmp.zip"))
-        # Extract the zip file
-        with zipfile.ZipFile(self.saving_dir + "raw/tmp.zip", "r") as zip_ref:
-            zip_ref.extractall(f"{self.saving_dir}raw/")
+            # Extract additional zip files
+            additional_files = ["EXPORT_HTS10_ALL.zip", "IMPORT_HTS10_ALL.zip"]
+            for additional_file in additional_files:
+                additional_file_path = os.path.join(f"{self.saving_dir}raw/{additional_file}")
+                with zipfile.ZipFile(additional_file_path, "r") as zip_ref:
+                    zip_ref.extractall(os.path.join(f"{self.saving_dir}raw/"))
 
-        # Extract additional zip files
-        additional_files = ["EXPORT_HTS10_ALL.zip", "IMPORT_HTS10_ALL.zip"]
-        for additional_file in additional_files:
-            additional_file_path = os.path.join(f"{self.saving_dir}raw/{additional_file}")
-            with zipfile.ZipFile(additional_file_path, "r") as zip_ref:
-                zip_ref.extractall(os.path.join(f"{self.saving_dir}raw/"))
+            for file in os.listdir(self.saving_dir + "raw/"):
+                if not file.endswith(".csv"):
+                    os.remove(self.saving_dir + "raw/" + file)
+        try:
+            hts = self.conn.table("htstable").to_polars().lazy()
+            unit = self.conn.table("unittable").to_polars().lazy()
+            country = self.conn.table("countrytable").to_polars().lazy()
+        except OperationalError:
+            self.pull_int_org()
+            hts = self.conn.table("htstable").to_polars().lazy()
+            unit = self.conn.table("unittable").to_polars().lazy()
+            country = self.conn.table("countrytable").to_polars().lazy()
 
-        imports = pl.read_csv(self.saving_dir + "raw/IMPORT_HTS10_ALL.csv", ignore_errors=True)
-        exports = pl.read_csv(self.saving_dir + "raw/EXPORT_HTS10_ALL.csv", ignore_errors=True)
-        df = pl.concat([imports, exports], how="vertical")
+        imports = pl.scan_csv(self.saving_dir + "raw/IMPORT_HTS10_ALL.csv", ignore_errors=True)
+        exports = pl.scan_csv(self.saving_dir + "raw/EXPORT_HTS10_ALL.csv", ignore_errors=True)
+        int_df = pl.concat([imports, exports], how="vertical")
+        int_df = int_df.rename({col: col.lower() for col in int_df.collect_schema().names()})
+        int_df = int_df.with_columns(date=pl.col("year").cast(pl.String) + "-" + pl.col("month").cast(pl.String) + "-01",
+                                     unit_1=pl.col("unit_1").str.to_lowercase(),
+                                     commodity_code=pl.col("hts").cast(pl.String).str.zfill(10).str.replace("'", ""),
+                                     trade_id=pl.when(pl.col("import_export") == "i").then(1).otherwise(2)).rename({"value": "data"})
 
-        for file in os.listdir(self.saving_dir + "raw/"):
-            if not file.endswith(".parquet"):
-                os.remove(self.saving_dir + "raw/" + file)
+        int_df = int_df.with_columns(pl.col("date").cast(pl.Date))
 
-        df.write_parquet(self.saving_dir + "raw/int_instance.parquet")
+
+        int_df = int_df.join(country, left_on="country", right_on="country_name", how="left").rename({"id": "country_id"})
+        int_df = int_df.join(hts, left_on="commodity_code", right_on="hts_code", how="left").rename({"id": "hts_id"})
+        int_df = int_df.join(unit, left_on="unit_1", right_on="unit_code", how="left").rename({"id": "unit1_id"})
+        int_df = int_df.join(unit, left_on="unit_2", right_on="unit_code", how="left").rename({"id": "unit2_id"})
+
+        int_df = int_df.select(pl.col("date", "trade_id", "country_id", "hts_id",
+                                            "unit1_id", "unit2_id", "data", "qty_1", "qty_2"))
+        self.conn.insert("inttradedata", int_df.collect())
 
     def pull_int_jp(self, update:bool=False) -> None:
         """
@@ -96,10 +120,8 @@ class DataPull:
         -------
         None
         """
-        create_trade_tables(self.engine)
         if not os.path.exists(self.saving_dir + "raw/jp_instance.csv") or update:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
             url = "https://datos.estadisticas.pr/dataset/92d740af-97e4-4cb3-a990-2f4d4fa05324/resource/b4d10e3d-0924-498c-9c0d-81f00c958ca6/download/ftrade_all_iepr.csv"
             self.pull_file(url=url, filename=(self.saving_dir + "raw/jp_instance.csv"), verify=False)
 
@@ -109,21 +131,22 @@ class DataPull:
 
         # Normalize column names
         jp_df = jp_df.rename({col: col.lower() for col in jp_df.collect_schema().names()})
-        jp_df = jp_df.with_columns(date=pl.col("year").cast(pl.String) + "-" + pl.col("month").cast(pl.String) + "-01")
+        jp_df = jp_df.with_columns(date=pl.col("year").cast(pl.String) + "-" + pl.col("month").cast(pl.String) + "-01",
+                                   unit_1=pl.col("unit_1").str.to_lowercase(),
+                                   commodity_code=pl.col("commodity_code").cast(pl.String).str.zfill(10),
+                                   trade=pl.when(pl.col("trade") == "i").then(1).otherwise(2)).rename({"trade": "trade_id"})
+
         jp_df = jp_df.with_columns(pl.col("date").cast(pl.Date))
-        jp_df = jp_df.with_columns(unit_1=pl.col("unit_1").str.to_lowercase())
-        jp_df = jp_df.with_columns(trade=pl.when(pl.col("trade") == "i").then(1).otherwise(2)).rename({"trade": "trade_id"})
 
         jp_df = jp_df.with_columns(
               sitc=pl.when(pl.col("sitc_short_desc").str.starts_with("Civilian")).then(9998)
-                        .when(pl.col("sitc_short_desc").str.starts_with("-")).then(9999).otherwise(pl.col("sitc"))
-        )
+                        .when(pl.col("sitc_short_desc").str.starts_with("-")).then(9999).otherwise(pl.col("sitc")))
         jp_df = jp_df.filter(pl.col("commodity_code").is_not_null())
 
         # Create the country DataFrame with unique entries
         country = jp_df.select(pl.col("cty_code", "country")).unique().rename({"country": "country_name"}).with_columns(
-            id=pl.col("cty_code").rank().cast(pl.Int64)
-        )
+            id=pl.col("cty_code").rank().cast(pl.Int64))
+
         hts = jp_df.select(pl.col("commodity_code", "commodity_short_name", "commodity_description")).unique()
         hts = hts.rename({
           "commodity_code": "hts_code",
@@ -150,10 +173,12 @@ class DataPull:
         jp_df = jp_df.join(hts, left_on="commodity_code", right_on="hts_code", how="left").rename({"id": "hts_id"})
         jp_df = jp_df.join(naics, left_on="naics", right_on="naics_code", how="left").rename({"id": "naics_id"})
         jp_df = jp_df.join(distric, left_on="district_posh", right_on="district_code", how="left").rename({"id": "district_id"})
-        jp_df = jp_df.join(unit, left_on="unit_1", right_on="unit_code", how="left").rename({"id": "unit_id"})
+        jp_df = jp_df.join(unit, left_on="unit_1", right_on="unit_code", how="left").rename({"id": "unit1_id"})
+        jp_df = jp_df.join(unit, left_on="unit_2", right_on="unit_code", how="left").rename({"id": "unit2_id"})
 
 
-        jp_df = jp_df.select(pl.col("date", "trade_id", "country_id", "sitc_id", "hts_id", "naics_id", "district_id", "unit_id", "data", "end_use_i", "end_use_e", "qty_1"))
+        jp_df = jp_df.select(pl.col("date", "trade_id", "country_id", "sitc_id", "hts_id", "naics_id", "district_id", 
+                                    "unit1_id", "unit2_id", "data", "end_use_i", "end_use_e", "qty_1", "qty_2"))
 
         # Write to database
         self.conn.insert('countrytable', country.collect())

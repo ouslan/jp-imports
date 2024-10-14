@@ -1,4 +1,5 @@
 from sqlmodel import Field, Session, SQLModel, select
+from sqlalchemy.exc import OperationalError
 from datetime import datetime
 from typing import Optional
 import ibis
@@ -15,8 +16,22 @@ class JPTradeData(SQLModel, table=True):
     data: int
     end_use_i: Optional[int] = Field(default=None)
     end_use_e: Optional[int] = Field(default=None)
-    unit_id: int | None = Field(default=None, foreign_key="unittable.id")
-    qty_1: int
+    unit1_id: int | None = Field(default=None, foreign_key="unittable.id")
+    qty_1: Optional[int] = Field(default=None)
+    unit2_id: int | None = Field(default=None, foreign_key="unittable.id")
+    qty_2: Optional[int] = Field(default=None)
+
+class IntTradeData(SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    date: datetime = Field(default_factory=datetime.now)
+    trade_id: int | None = Field(default=None, foreign_key="tradetable.id")
+    hts_id: int | None = Field(default=None, foreign_key="htstable.id")
+    country_id: int | None = Field(default=None, foreign_key="countrytable.id")
+    data: int
+    unit1_id: int | None = Field(default=None, foreign_key="unittable.id")
+    qty_1: Optional[int] = Field(default=None)
+    unit2_id: int | None = Field(default=None, foreign_key="unittable.id")
+    qty_2: Optional[int] = Field(default=None)
 
 class CountryTable(SQLModel, table=True):
     id: int = Field(primary_key=True)

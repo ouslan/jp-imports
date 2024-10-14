@@ -171,3 +171,6 @@ data/*
 # ignore qmd stuff
 /notebooks/*
 !/notebooks/*.qmd
+
+*.sqlite
+pull.py
