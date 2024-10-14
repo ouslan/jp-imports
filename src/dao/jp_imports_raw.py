@@ -1,5 +1,4 @@
-from sqlmodel import Field, Session, SQLModel, select
-from sqlalchemy.exc import OperationalError
+from sqlmodel import Field, Session, SQLModel
 from datetime import datetime
 from typing import Optional
 import ibis

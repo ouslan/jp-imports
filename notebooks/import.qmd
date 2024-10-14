@@ -23,7 +23,7 @@ import ibis
 ```
 
 ```{python}
-engine = create_engine("sqlite:///db.sqlite")
+engine = create_engine("postgresql://postgres:password@localhost:5432/timescaledb")
 database_url = "sqlite:///db.sqlite"
 database_url2 = "postgresql://postgres:password@localhost:5432/timescaledb"
 create_trade_tables(engine)
@@ -80,11 +80,11 @@ jp_df = jp_df.join(sitc, left_on="sitc", right_on="sitc_code", how="left").renam
 jp_df = jp_df.join(hts, left_on="commodity_code", right_on="hts_code", how="left").rename({"id": "hts_id"})
 jp_df = jp_df.join(naics, left_on="naics", right_on="naics_code", how="left").rename({"id": "naics_id"})
 jp_df = jp_df.join(distric, left_on="district_posh", right_on="district_code", how="left").rename({"id": "district_id"})
-jp_df = jp_df.join(unit, left_on="unit_1", right_on="unit_code", how="left").rename({"id": "unit_id"})
+jp_df = jp_df.join(unit, left_on="unit_1", right_on="unit_code", how="left").rename({"id": "unit1_id"})
+jp_df = jp_df.join(unit, left_on="unit_2", right_on="unit_code", how="left").rename({"id": "unit2_id"})
 
 
-jp_df = jp_df.select(pl.col("date", "trade_id", "country_id", "sitc_id", "hts_id", "naics_id", "district_id", "unit_id", "data", "end_use_i", "end_use_e", "qty_1"))
-
+jp_df = jp_df.select(pl.col("date", "trade_id", "country_id", "sitc_id", "hts_id", "naics_id", "district_id", "unit1_id", "unit2_id", "data", "end_use_i", "end_use_e", "qty_1", "qty_2"))
 ```
 
 ```{python}
@@ -99,18 +99,14 @@ jp_df.collect().write_database(table_name="jptradedata", connection=database_url
 
 ```{python}
 import ibis
-con = ibis.connect("db.sqlite")
+con = ibis.connect("postgresql://postgres:password@localhost:5432/timescaledb")
 con.insert('countrytable', country.collect())
 con.insert('sitctable', sitc.collect())
 con.insert('htstable', hts.collect())
 con.insert('naicstable', naics.collect())
 con.insert('districttable', distric.collect())
 con.insert('unittable', unit.collect())
-# con.insert('jptradedata', jp_df.collect().to_dicts())
-```
-
-```{python}
-con.insert('jptradedata', jp_df.collect())
+con.insert('jptradedata', jp_df.collect().to_dicts())
 ```
 
 ```{python}

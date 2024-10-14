@@ -1,5 +1,4 @@
 from ..dao.jp_imports_raw import create_trade_tables
-from sqlalchemy.exc import OperationalError
 from sqlmodel import create_engine
 from tqdm import tqdm
 import polars as pl
@@ -76,12 +75,12 @@ class DataPull:
             for file in os.listdir(self.saving_dir + "raw/"):
                 if not file.endswith(".csv"):
                     os.remove(self.saving_dir + "raw/" + file)
-        try:
+        if "jptradedata" in self.conn.list_tables():
             hts = self.conn.table("htstable").to_polars().lazy()
             unit = self.conn.table("unittable").to_polars().lazy()
             country = self.conn.table("countrytable").to_polars().lazy()
-        except OperationalError:
-            self.pull_int_org()
+        else:
+            self.pull_int_jp()
             hts = self.conn.table("htstable").to_polars().lazy()
             unit = self.conn.table("unittable").to_polars().lazy()
             country = self.conn.table("countrytable").to_polars().lazy()

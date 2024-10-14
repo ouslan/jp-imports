@@ -24,7 +24,7 @@ import ibis
 ```
 
 ```{python}
-d = DataPull()
+d = DataPull("postgresql://postgres:password@localhost:5432/timescaledb")
 d.pull_int_org()
 ```
 
