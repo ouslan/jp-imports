@@ -1,0 +1,55 @@
+---
+title: "Moving price graph"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+from dotenv import load_dotenv
+load_dotenv()
+```
+
+```{python}
+from src.jp_imports.data_process import DataProcess
+from src.jp_imports.data_pull import DataPull
+# from plotly.subplots import make_subplots
+# import plotly.graph_objects as go
+from datetime import datetime
+# import plotly.express as px
+import polars as pl
+import ibis
+
+d = DataProcess()
+conn = ibis.sqlite.connect("db.sqlite")
+```
+
+```{python}
+time = "monthly"
+types = "country"
+df = d.process_int_org(time, types)
+df
+```
+
+```{python}
+d.process_price()
+```
+
+```{python}
+df = conn.table("inttradedata").to_polars()
+```
+
+```{python}
+df = conn.table("inttradedata")
+units = conn.table("unittable")
+df = df.join(units, df.unit1_id == units.id).rename(unit_1="unit_code")
+df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code")
+
+df = df.to_polars()
+df = df.with_columns(year=pl.col("date").dt.year(), month=pl.col("date").dt.month())
+df = d.conversion(df)
+df
+```

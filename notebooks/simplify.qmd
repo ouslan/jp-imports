@@ -1,0 +1,51 @@
+---
+title: "Agriculture processing"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+from dotenv import load_dotenv
+load_dotenv()
+```
+
+```{python}
+from src.jp_imports.data_process import DataProcess
+import polars as pl
+import ibis
+```
+
+```{python}
+d = DataProcess()
+conn = ibis.connect("db.sqlite")
+conn.list_tables()
+```
+
+```{python}
+df = conn.table("jptradedata")
+units = conn.table("unittable")
+df = df.join(units, df.unit1_id == units.id).rename(unit_1="unit_code")
+df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code").to_polars()
+df = d.conversion(df)
+df
+```
+
+```{python}
+df2 = df.with_columns(year=pl.col("date").dt.year(), month=pl.col("date").dt.month())
+switch = ["fiscal", "total"]
+d.process_data(switch=switch, base=df2)
+```
+
+```{python}
+df = d.process_price("fiscal", "hts")
+df
+```
+
+```{python}
+hts = conn.table("htstable").to_polars()
+df.join(hts, left_on="hts_id", right_on="id").filter(pl.col("agri_prod") == True)
+```
