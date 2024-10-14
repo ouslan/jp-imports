@@ -1,25 +1,26 @@
 from sqlmodel import Field, Session, SQLModel, select
 from datetime import datetime
 from typing import Optional
+import ibis
 
 class JPTradeData(SQLModel, table=True):
     id: int = Field(primary_key=True)
-    date: datetime = Field(default_factory=datetime.utcnow, index=True)
-    trade_id: Optional[int] = Field(default=None, foreign_key="tradetable.id")
-    hts_id: Optional[int] = Field(default=None, foreign_key="htstable.id")
-    country_id: Optional[int] = Field(default=None, foreign_key="countrytable.id")
-    district_id: Optional[int] = Field(default=None, foreign_key="districttable.id")
-    sitc_id: Optional[int] = Field(default=None, foreign_key="sitctable.id")
-    naics_id: Optional[int] = Field(default=None, foreign_key="naicstable.id")
+    date: datetime = Field(default_factory=datetime.now)
+    trade_id: int | None = Field(default=None, foreign_key="tradetable.id")
+    hts_id: int | None = Field(default=None, foreign_key="htstable.id")
+    country_id: int | None = Field(default=None, foreign_key="countrytable.id")
+    district_id: int | None = Field(default=None, foreign_key="districttable.id")
+    sitc_id: int | None = Field(default=None, foreign_key="sitctable.id")
+    naics_id: int | None = Field(default=None, foreign_key="naicstable.id")
     data: int
     end_use_i: Optional[int] = Field(default=None)
     end_use_e: Optional[int] = Field(default=None)
-    unit_id: Optional[int] = Field(default=None, foreign_key="unittable.id")
+    unit_id: int | None = Field(default=None, foreign_key="unittable.id")
     qty_1: int
 
 class CountryTable(SQLModel, table=True):
     id: int = Field(primary_key=True)
-    cty_code: str
+    cty_code : str
     country_name: str
 
 class HTSTable(SQLModel, table=True):
@@ -64,11 +65,6 @@ def create_trade(engine):
         session.add_all([imports, exports])
         session.commit()
 
-def select_all_jp_trade_data(engine):
-    with Session(engine) as session:
-        statement = select(JPTradeData)
-        return session.exec(statement).all()
-
-def create_hypertable(engine):
-    with engine.connect() as conn:
-        conn.execute("SELECT create_hypertable('jp_trade_data', 'date', if_not_exists => TRUE, chunk_time_interval => interval '1 month');")
+def select_all_jp_trade_data(db_url):
+    con = ibis.connect(db_url)
+    return con.table("jp_trade_data").to_polars()

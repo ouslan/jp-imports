@@ -1,0 +1,34 @@
+---
+title: "Agriculture processing"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+from dotenv import load_dotenv
+load_dotenv()
+```
+
+```{python}
+from src.dao.jp_imports_raw import create_trade_tables, select_all_jp_trade_data
+from src.jp_imports.data_pull import DataPull
+from sqlmodel import create_engine
+from datetime import datetime
+import polars as pl
+import pandas as pd
+import ibis
+```
+
+```{python}
+d = DataPull()
+d.pull_int_jp()
+```
+
+```{python}
+con = ibis.connect("db.sqlite")
+pl.from_arrow(con.table("jptradedata").to_pyarrow())
+```

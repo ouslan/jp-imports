@@ -14,25 +14,28 @@ load_dotenv()
 ```
 
 ```{python}
-from src.dao.jp_imports_raw import create_trade_tables
+from src.dao.jp_imports_raw import create_trade_tables, select_all_jp_trade_data
 from sqlmodel import create_engine
 from datetime import datetime
 import polars as pl
 import pandas as pd
+import ibis
 ```
 
 ```{python}
-engine = create_engine("postgresql://postgres:password@localhost:5432/timescaledb")
-database_url = "postgresql://postgres:password@localhost:5432/timescaledb"
+engine = create_engine("sqlite:///db.sqlite")
+database_url = "sqlite:///db.sqlite"
+database_url2 = "postgresql://postgres:password@localhost:5432/timescaledb"
 create_trade_tables(engine)
+#conn = ibis.connect(database_url)
 ```
 
 ```{python}
 # Load the data
-jp_df = pl.read_csv("data/raw/jp_instance.csv", ignore_errors=True)
+jp_df = pl.scan_csv("data/raw/jp_instance.csv", ignore_errors=True)
 
 # Normalize column names
-jp_df = jp_df.rename({col: col.lower() for col in jp_df.columns})
+jp_df = jp_df.rename({col: col.lower() for col in jp_df.collect_schema().names()})
 jp_df = jp_df.with_columns(date=pl.col("year").cast(pl.String) + "-" + pl.col("month").cast(pl.String) + "-01")
 jp_df = jp_df.with_columns(pl.col("date").cast(pl.Date))
 jp_df = jp_df.with_columns(unit_1=pl.col("unit_1").str.to_lowercase())
@@ -82,21 +85,35 @@ jp_df = jp_df.join(unit, left_on="unit_1", right_on="unit_code", how="left").ren
 
 jp_df = jp_df.select(pl.col("date", "trade_id", "country_id", "sitc_id", "hts_id", "naics_id", "district_id", "unit_id", "data", "end_use_i", "end_use_e", "qty_1"))
 
-jp_df
 ```
 
 ```{python}
-country.write_database(table_name="countrytable", connection=database_url, if_table_exists="append")
-sitc.write_database(table_name="sitctable", connection=database_url, if_table_exists="append")
-hts.write_database(table_name="htstable", connection=database_url, if_table_exists="append")
-naics.write_database(table_name="naicstable", connection=database_url, if_table_exists="append")
-distric.write_database(table_name="districttable", connection=database_url, if_table_exists="append")
-unit.write_database(table_name="unittable", connection=database_url, if_table_exists="append")
-jp_df.write_database(table_name="jptradedata", connection=database_url, if_table_exists="append")
+country.collect().write_database(table_name="countrytable", connection=database_url, if_table_exists="append")
+sitc.collect().write_database(table_name="sitctable", connection=database_url, if_table_exists="append")
+hts.collect().write_database(table_name="htstable", connection=database_url, if_table_exists="append")
+naics.collect().write_database(table_name="naicstable", connection=database_url, if_table_exists="append")
+distric.collect().write_database(table_name="districttable", connection=database_url, if_table_exists="append")
+unit.collect().write_database(table_name="unittable", connection=database_url, if_table_exists="append")
+jp_df.collect().write_database(table_name="jptradedata", connection=database_url, if_table_exists="append")
 ```
 
+```{python}
+import ibis
+con = ibis.connect("db.sqlite")
+con.insert('countrytable', country.collect())
+con.insert('sitctable', sitc.collect())
+con.insert('htstable', hts.collect())
+con.insert('naicstable', naics.collect())
+con.insert('districttable', distric.collect())
+con.insert('unittable', unit.collect())
+# con.insert('jptradedata', jp_df.collect().to_dicts())
+```
 
 ```{python}
-jp_df.filter(pl.col("naics_id")== 38)
-naics.filter(pl.col("id") == 38)
+con.insert('jptradedata', jp_df.collect())
+```
+
+```{python}
+con = ibis.connect("db.sqlite")
+pl.from_arrow(con.table("jptradedata").to_pyarrow())
 ```
