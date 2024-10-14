@@ -31,7 +31,7 @@ class DataPull:
         if self.database_url.startswith("sqlite"):
             self.conn = ibis.sqlite.connect(self.database_url.replace("sqlite:///", ""))
         else:
-            self.conn = ibis.connect(self.database_url)
+            raise Exception("Database url is not supported")
 
         if not os.path.exists(self.saving_dir + "external/code_classification.json"):
             self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_classification.json", filename=(self.saving_dir + "external/code_classification.json"))
@@ -126,6 +126,8 @@ class DataPull:
 
         # Prepare to insert to database
         create_trade_tables(self.engine)
+        agri_prod = pl.read_json(self.saving_dir + "external/code_agr.json").transpose()
+        agri_prod = agri_prod.with_columns(pl.nth(0).cast(pl.String).str.zfill(4)).to_series().to_list()
         jp_df = pl.scan_csv(self.saving_dir + "raw/jp_instance.csv", ignore_errors=True)
 
         # Normalize column names
@@ -152,6 +154,7 @@ class DataPull:
           "commodity_short_name": "hts_short_desc",
           "commodity_description": "hts_long_desc"
         }).with_columns(id=pl.col("hts_code").rank().cast(pl.Int64))
+        hts = hts.with_columns(agri_prod=pl.col("hts_code").str.slice(0, 4).is_in(agri_prod))
 
         # Create the Reference DataFrames
         sitc = jp_df.select(pl.col("sitc", "sitc_short_desc", "sitc_long_desc")).unique().rename({"sitc": "sitc_code"}).with_columns(

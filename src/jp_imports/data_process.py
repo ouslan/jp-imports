@@ -29,13 +29,6 @@ class DataProcess(DataPull):
         self.saving_dir = saving_dir
         self.debug = debug
         super().__init__(database_url=database_url, saving_dir=self.saving_dir)
-        self.codes = json.load(open(self.saving_dir + "external/code_classification.json"))
-        self.codes_agr = []
-
-        agr = json.load(open(self.saving_dir + "external/code_agr.json"))
-
-        for i in list(agr.values()):
-            self.codes_agr.append(str(i).zfill(4))
 
     def process_int_jp(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> pl.LazyFrame:
         """
@@ -58,7 +51,8 @@ class DataProcess(DataPull):
             Processed data. Requires df.collect() to view the data.
         """
         switch = [time, types]
-        if "jptradedata" not in self.conn.list_tables():
+        
+        if "jptradedata" not in self.conn.list_tables() or update:
             self.pull_int_jp()
         
         df = self.conn.table("jptradedata")
@@ -67,6 +61,10 @@ class DataProcess(DataPull):
         df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code").to_polars()
         df = self.conversion(df)
         df = df.with_columns(year=pl.col("date").dt.year(), month=pl.col("date").dt.month())
+
+        if agr:
+            hts = self.conn.table("htstable").to_polars()
+            df.join(hts, left_on="hts_id", right_on="id").filter(pl.col("agri_prod") == True)
 
         if group:
             #return self.process_cat(switch=switch)
@@ -95,14 +93,26 @@ class DataProcess(DataPull):
             Processed data. Requires df.collect() to view the data.
         """
         switch = [time, types]
-        if not os.path.exists(self.saving_dir + "raw/int_instance.parquet") or update:
+
+        if "inttradedata" not in self.conn.list_tables() or update:
             self.pull_int_org()
+
+        df = self.conn.table("inttradedata")
+        units = self.conn.table("unittable")
+        df = df.join(units, df.unit1_id == units.id).rename(unit_1="unit_code")
+        df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code").to_polars()
+        df = self.conversion(df)
+        df = df.with_columns(year=pl.col("date").dt.year(), month=pl.col("date").dt.month())
+
+        if agr:
+            hts = self.conn.table("htstable").to_polars()
+            df.join(hts, left_on="hts_id", right_on="id").filter(pl.col("agri_prod") == True)
 
         if group:
             #return self.process_cat(switch=switch)
             raise NotImplementedError("Grouping not implemented yet")
         else:
-            return self.process_data(switch=switch, base=self.process_int_base(agr=agr))
+            return self.process_data(switch=switch, base=df)
 
     def process_data(self, switch:list, base:pl.lazyframe) -> pl.LazyFrame:
         """

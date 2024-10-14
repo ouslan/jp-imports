@@ -40,6 +40,7 @@ jp_df = jp_df.with_columns(date=pl.col("year").cast(pl.String) + "-" + pl.col("m
 jp_df = jp_df.with_columns(pl.col("date").cast(pl.Date))
 jp_df = jp_df.with_columns(unit_1=pl.col("unit_1").str.to_lowercase())
 jp_df = jp_df.with_columns(trade=pl.when(pl.col("trade") == "i").then(1).otherwise(2)).rename({"trade": "trade_id"})
+jp_df = jp_df.with_columns(commodity_code=pl.col("commodity_code").cast(pl.String).str.zfill(10))
 
 jp_df = jp_df.with_columns(
       sitc=pl.when(pl.col("sitc_short_desc").str.starts_with("Civilian")).then(9998)
@@ -88,16 +89,6 @@ jp_df = jp_df.select(pl.col("date", "trade_id", "country_id", "sitc_id", "hts_id
 ```
 
 ```{python}
-country.collect().write_database(table_name="countrytable", connection=database_url, if_table_exists="append")
-sitc.collect().write_database(table_name="sitctable", connection=database_url, if_table_exists="append")
-hts.collect().write_database(table_name="htstable", connection=database_url, if_table_exists="append")
-naics.collect().write_database(table_name="naicstable", connection=database_url, if_table_exists="append")
-distric.collect().write_database(table_name="districttable", connection=database_url, if_table_exists="append")
-unit.collect().write_database(table_name="unittable", connection=database_url, if_table_exists="append")
-jp_df.collect().write_database(table_name="jptradedata", connection=database_url, if_table_exists="append")
-```
-
-```{python}
 import ibis
 con = ibis.connect("postgresql://postgres:password@localhost:5432/timescaledb")
 con.insert('countrytable', country.collect())
@@ -110,6 +101,9 @@ con.insert('jptradedata', jp_df.collect().to_dicts())
 ```
 
 ```{python}
-con = ibis.connect("db.sqlite")
-pl.from_arrow(con.table("jptradedata").to_pyarrow())
+df = hts.collect()
+agr = pl.read_json("data/external/code_agr.json").transpose()
+agr = agr.with_columns(pl.nth(0).cast(pl.String).str.zfill(4)).to_series().to_list()
+#df.with_columns(agr=pl.col("hts_code").str
+df.with_columns(agr=pl.col("hts_code").str.slice(0, 4).is_in(agr))
 ```

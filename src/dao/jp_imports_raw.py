@@ -42,6 +42,7 @@ class HTSTable(SQLModel, table=True):
     hts_code: str
     hts_short_desc: str
     hts_long_desc: str
+    agri_prod: bool
 
 class SITCTable(SQLModel, table=True):
     id: int = Field(primary_key=True)
