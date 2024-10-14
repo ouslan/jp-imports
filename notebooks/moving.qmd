@@ -29,13 +29,13 @@ conn = ibis.sqlite.connect("db.sqlite")
 
 ```{python}
 time = "monthly"
-types = "hts"
+types = "country"
 df = d.process_int_org(time, types)
 df
 ```
 
 ```{python}
-d.pull_int_org()
+d.process_price()
 ```
 
 ```{python}

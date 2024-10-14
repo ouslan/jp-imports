@@ -164,11 +164,11 @@ class DataProcess(DataPull):
                     return df
 
             case ["yearly", "country"]:
-                    df = self.filter_data(base, ["year", "country"])
+                    df = self.filter_data(base, ["year", "country_id"])
                     df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
-                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
-                    df = df.select(pl.col("*").exclude("year_right", "country_right"))
-                    df = df.with_columns(pl.col("imports", "exports", "imports_qty", "exports_qty").fill_null(strategy="zero")).sort("year", "country")
+                                        country_id=pl.when(pl.col("country_id").is_null()).then(pl.col("country_id_right")).otherwise(pl.col("country_id")))
+                    df = df.select(pl.col("*").exclude("year_right", "country_id_right"))
+                    df = df.with_columns(pl.col("imports", "exports", "imports_qty", "exports_qty").fill_null(strategy="zero")).sort("year", "country_id")
                     df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
                     df = df.with_columns(net_qty=pl.col("exports_qty")-pl.col("imports_qty"))
                     return df
@@ -203,11 +203,11 @@ class DataProcess(DataPull):
                     return df
 
             case ["fiscal", "country"]:
-                    df = self.filter_data(base, ["fiscal_year", "country"])
+                    df = self.filter_data(base, ["fiscal_year", "country_id"])
                     df = df.with_columns(fiscal_year=pl.when(pl.col("fiscal_year").is_null()).then(pl.col("fiscal_year_right")).otherwise(pl.col("fiscal_year")),
-                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
-                    df = df.select(pl.col("*").exclude("fiscal_year_right", "country_right"))
-                    df = df.with_columns(pl.col("imports", "exports", "imports_qty", "exports_qty").fill_null(strategy="zero")).sort("fiscal_year", "country")
+                                        country_id=pl.when(pl.col("country_id").is_null()).then(pl.col("country_id_right")).otherwise(pl.col("country_id")))
+                    df = df.select(pl.col("*").exclude("fiscal_year_right", "country_id_right"))
+                    df = df.with_columns(pl.col("imports", "exports", "imports_qty", "exports_qty").fill_null(strategy="zero")).sort("fiscal_year", "country_id")
                     df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
                     df = df.with_columns(net_qty=pl.col("exports_qty")-pl.col("imports_qty"))
                     return df
@@ -245,12 +245,12 @@ class DataProcess(DataPull):
                     return df
 
             case ["qrt", "country"]:
-                    df = self.filter_data(base, ["year", "qrt", "country"])
+                    df = self.filter_data(base, ["year", "qrt", "country_id"])
                     df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
                                         qrt=pl.when(pl.col("qrt").is_null()).then(pl.col("qrt_right")).otherwise(pl.col("qrt")),
-                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
-                    df = df.select(pl.col("*").exclude("year_right", "qrt_right", "country_right"))
-                    df = df.with_columns(pl.col("imports", "exports", "imports_qty", "exports_qty").fill_null(strategy="zero")).sort("year", "qrt", "country")
+                                        country_id=pl.when(pl.col("country_id").is_null()).then(pl.col("country_id_right")).otherwise(pl.col("country_id")))
+                    df = df.select(pl.col("*").exclude("year_right", "qrt_right", "country_id_right"))
+                    df = df.with_columns(pl.col("imports", "exports", "imports_qty", "exports_qty").fill_null(strategy="zero")).sort("year", "qrt", "country_id")
                     df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
                     df = df.with_columns(net_qty=pl.col("exports_qty")-pl.col("imports_qty"))
                     return df
@@ -288,12 +288,12 @@ class DataProcess(DataPull):
                     return df
 
             case ["monthly", "country"]:
-                    df = self.filter_data(base, ["year", "month", "country"])
+                    df = self.filter_data(base, ["year", "month", "country_id"])
                     df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
                                         month=pl.when(pl.col("month").is_null()).then(pl.col("month_right")).otherwise(pl.col("month")),
-                                        country=pl.when(pl.col("country").is_null()).then(pl.col("country_right")).otherwise(pl.col("country")))
-                    df = df.select(pl.col("*").exclude("year_right", "month_right", "country_right"))
-                    df = df.with_columns(pl.col("imports", "exports", "imports_qty", "exports_qty").fill_null(strategy="zero")).sort("year", "month", "country")
+                                        country_id=pl.when(pl.col("country_id").is_null()).then(pl.col("country_id_right")).otherwise(pl.col("country_id")))
+                    df = df.select(pl.col("*").exclude("year_right", "month_right", "country_id_right"))
+                    df = df.with_columns(pl.col("imports", "exports", "imports_qty", "exports_qty").fill_null(strategy="zero")).sort("year", "month", "country_id")
                     df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
                     df = df.with_columns(net_qty=pl.col("exports_qty")-pl.col("imports_qty"))
                     return df
