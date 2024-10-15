@@ -75,6 +75,7 @@ class DataPull:
             for file in os.listdir(self.saving_dir + "raw/"):
                 if not file.endswith(".csv"):
                     os.remove(self.saving_dir + "raw/" + file)
+
         if "jptradedata" in self.conn.list_tables():
             hts = self.conn.table("htstable").to_polars().lazy()
             unit = self.conn.table("unittable").to_polars().lazy()
@@ -142,34 +143,38 @@ class DataPull:
         jp_df = jp_df.with_columns(pl.col("date").cast(pl.Date))
 
         jp_df = jp_df.with_columns(
-              sitc=pl.when(pl.col("sitc_short_desc").str.starts_with("Civilian")).then(9998)
-                        .when(pl.col("sitc_short_desc").str.starts_with("-")).then(9999).otherwise(pl.col("sitc")))
+              sitc=pl.when(pl.col("sitc_short_desc").str.starts_with("Civilian")).then(9998).when(pl.col("sitc_short_desc").str.starts_with("-")).then(9999).otherwise(pl.col("sitc")))
+
         jp_df = jp_df.filter(pl.col("commodity_code").is_not_null())
 
         # Create the country DataFrame with unique entries
-        country = jp_df.select(pl.col("cty_code", "country")).unique().rename({"country": "country_name"}).with_columns(
-            id=pl.col("cty_code").rank().cast(pl.Int64))
+        country = jp_df.select(pl.col("cty_code", "country")).unique().rename({"country": "country_name"})
+        country = country.filter(pl.col("cty_code").is_not_null()).with_columns(
+            id=pl.col("cty_code").rank(method="ordinal").cast(pl.Int64))
 
         hts = jp_df.select(pl.col("commodity_code", "commodity_short_name", "commodity_description")).unique()
         hts = hts.rename({
           "commodity_code": "hts_code",
           "commodity_short_name": "hts_short_desc",
           "commodity_description": "hts_long_desc"
-        }).with_columns(id=pl.col("hts_code").rank().cast(pl.Int64))
+        }).with_columns(id=pl.col("hts_code").rank(method="ordinal").cast(pl.Int64))
         hts = hts.with_columns(agri_prod=pl.col("hts_code").str.slice(0, 4).is_in(agri_prod))
 
         # Create the Reference DataFrames
-        sitc = jp_df.select(pl.col("sitc", "sitc_short_desc", "sitc_long_desc")).unique().rename({"sitc": "sitc_code"}).with_columns(
-            id=pl.col("sitc_code").rank().cast(pl.Int64))
+        sitc = jp_df.select(pl.col("sitc", "sitc_short_desc", "sitc_long_desc")).unique().rename({"sitc": "sitc_code"})
+        sitc = sitc.filter(pl.col("sitc_code").is_not_null()).with_columns(id=pl.col("sitc_code").rank(method="ordinal").cast(pl.Int64))
 
-        naics = jp_df.select(pl.col("naics", "naics_description")).unique().rename({"naics": "naics_code"}).with_columns(
-            id=pl.col("naics_code").rank().cast(pl.Int64))
+        naics = jp_df.select(pl.col("naics", "naics_description")).unique().rename({"naics": "naics_code"}).cast(pl.String)
+        naics = naics.filter(pl.col("naics_code").is_not_null()).with_columns(
+            id=pl.col("naics_code").rank(method="ordinal").cast(pl.Int64))
 
-        distric = jp_df.select(pl.col("district_posh", "districtposhdesc")).unique().rename({"district_posh": "district_code", "districtposhdesc": "district_desc"}).with_columns(
+        distric = jp_df.select(pl.col("district_posh", "districtposhdesc")).unique().rename({"district_posh": "district_code", "districtposhdesc": "district_desc"})
+        distric = distric.filter(pl.col("district_code").is_not_null()).with_columns(
             id=pl.col("district_code").rank().cast(pl.Int64))
 
-        unit = jp_df.select(pl.col("unit_1")).unique().rename({"unit_1": "unit_code"}).with_columns(
-            id=pl.col("unit_code").rank().cast(pl.Int64))
+        unit = jp_df.select(pl.col("unit_1")).unique().rename({"unit_1": "unit_code"})
+        unit = unit.filter(pl.col("unit_code").is_not_null()).with_columns(
+            id=pl.col("unit_code").rank(method="ordinal").cast(pl.Int64))
 
         # Join jp_df with the Reference DataFrames
         jp_df = jp_df.join(country, on="cty_code", how="left").rename({"id": "country_id"})

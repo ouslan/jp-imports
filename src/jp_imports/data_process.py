@@ -394,8 +394,6 @@ class DataProcess(DataPull):
                 df = df.with_columns(pl.col("imports", "exports", "imports_qty", "exports_qty").fill_null(strategy="zero")).sort("year", "naics")
                 df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
 
-                for key, value in self.codes.items():
-                    pass
 
     def filter_data(self, df:pl.DataFrame, filter:list) -> pl.DataFrame:
         """
