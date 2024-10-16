@@ -33,7 +33,7 @@ conn = ibis.sqlite.connect("test_data.sqlite")
 ```
 
 ```{python}
-jp_df = 
+conn.list_tables().count()
 ```
 
 ```{python}

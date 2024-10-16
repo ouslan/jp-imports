@@ -16,9 +16,9 @@ class JPTradeData(SQLModel, table=True):
     end_use_i: Optional[int] = Field(default=None)
     end_use_e: Optional[int] = Field(default=None)
     unit1_id: int | None = Field(default=None, foreign_key="unittable.id")
-    qty_1: Optional[int] = Field(default=None)
+    qty_1: Optional[int] = Field(default=0)
     unit2_id: int | None = Field(default=None, foreign_key="unittable.id")
-    qty_2: Optional[int] = Field(default=None)
+    qty_2: Optional[int] = Field(default=0)
 
 class IntTradeData(SQLModel, table=True):
     id: int = Field(primary_key=True)
