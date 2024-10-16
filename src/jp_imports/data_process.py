@@ -1,5 +1,3 @@
-from ..dao.jp_imports_raw import select_all_jp_trade_data
-from sqlalchemy.exc import OperationalError
 from .data_pull import DataPull
 import polars as pl
 import json

@@ -1,12 +1,28 @@
 services:
   database:
-    image: postgres
-    container_name: timescaledb_dev
-    restart: always
-    ports:
-      - ${POSTGRES_PORT}:5432
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      image: postgres:latest
+      container_name: database
+      restart: always
+      ports:
+        - ${POSTGRES_PORT}:5432
+      environment:
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: ${POSTGRES_DB}
+      volumes:
+        - type: volume
+          source: timescale_volume
+          target: /var/lib/postgresql/data
+          read_only: false
+      networks:
+        - timescale_network
+      healthcheck:
+        test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
+        interval: 5s
+        timeout: 3s
+        retries: 5
+networks:
+  timescale_network:
+
+volumes:
+  timescale_volume:

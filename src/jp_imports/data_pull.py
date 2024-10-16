@@ -14,7 +14,7 @@ class DataPull:
 
     """
 
-    def __init__(self, database_url:str='sqlite:///db.sqlite', saving_dir:str='data/'  ) -> None:
+    def __init__(self, database_url:str='sqlite:///db.sqlite', saving_dir:str='data/') -> None:
         """
         Parameters
         ----------
@@ -30,6 +30,14 @@ class DataPull:
         self.saving_dir = saving_dir
         if self.database_url.startswith("sqlite"):
             self.conn = ibis.sqlite.connect(self.database_url.replace("sqlite:///", ""))
+        elif self.database_url.startswith("postgres"):
+            self.conn = ibis.postgres.connect(
+                user=self.database_url.split("://")[1].split(":")[0],
+                password=self.database_url.split("://")[1].split(":")[1].split("@")[0],
+                host=self.database_url.split("://")[1].split(":")[1].split("@")[1],
+                port=self.database_url.split("://")[1].split(":")[2].split("/")[0],
+                database=self.database_url.split("://")[1].split(":")[2].split("/")[1]
+            )
         else:
             raise Exception("Database url is not supported")
 

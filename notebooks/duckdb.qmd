@@ -24,7 +24,12 @@ import ibis
 ```
 
 ```{python}
-d = DataPull()
+url = "postgresql://postgres:password@localhost:5433/timescaledb"
+url.split("://")[1].split(":")[2].split("/")[0]
+```
+
+```{python}
+d = DataPull("postgresql://postgres:password@localhost:5433/timescaledb")
 d.pull_int_org()
 ```
 
