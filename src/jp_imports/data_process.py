@@ -30,7 +30,7 @@ class DataProcess(DataPull):
         self.debug = debug
         super().__init__(database_url=database_url, saving_dir=self.saving_dir)
 
-    def process_int_jp(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> pl.LazyFrame:
+    def process_int_jp(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> pl.DataFrame:
         """
         Process the data for Puerto Rico Statistics Institute provided to JP.
 
@@ -72,7 +72,7 @@ class DataProcess(DataPull):
         else:
             return self.process_data(switch=switch, base=df)
 
-    def process_int_org(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> pl.LazyFrame:
+    def process_int_org(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> pl.DataFrame:
         """
         Process the data from Puerto Rico Statistics Institute.
 
@@ -114,7 +114,7 @@ class DataProcess(DataPull):
         else:
             return self.process_data(switch=switch, base=df)
 
-    def process_data(self, switch:list, base:pl.lazyframe) -> pl.LazyFrame:
+    def process_data(self, switch:list, base:pl.DataFrame) -> pl.DataFrame:
         """
         Process the data based on the switch. Used for the process_int_jp and process_int_org methods 
             to determine the aggregation of the data.
@@ -301,7 +301,7 @@ class DataProcess(DataPull):
             case _:
                 raise ValueError(f"Invalid switch: {switch}")
 
-    def process_price(self, agr:bool=False) -> pl.LazyFrame:
+    def process_price(self, agr:bool=False) -> pl.DataFrame:
         df = self.process_int_org("monthly", "hts", agr)
         hts = self.conn.table("htstable").to_polars()
         df = df.join(hts, left_on="hts_id", right_on="id")
