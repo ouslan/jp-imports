@@ -48,19 +48,19 @@ class DataProcess(DataPull):
             Processed data. Requires df.collect() to view the data.
         """
         switch = [time, types]
-        
+
         if "jptradedata" not in self.conn.list_tables() or update:
             self.pull_int_jp()
         if int(self.conn.table("jptradedata").count().execute()) == 0:
             self.pull_int_jp()
-        
+
         df = self.conn.table("jptradedata")
         units = self.conn.table("unittable")
         df = self.conversion(df, units)
 
         if agr:
             hts = self.conn.table("htstable").select("id", "agri_prod")
-            df = df.join(hts, df.hts_id == hts.id).filter(pl.col("agri_prod") == True)
+            df = df.join(hts, df.hts_id == hts.id).filter(pl.col("agri_prod"))
 
         if group:
             #return self.process_cat(switch=switch)
@@ -90,6 +90,8 @@ class DataProcess(DataPull):
         """
         switch = [time, types]
 
+        if types == "naics":
+            raise ValueError("NAICS data is not available for Puerto Rico Statistics Institute.")
         if "inttradedata" not in self.conn.list_tables() or update:
             self.pull_int_org()
         if int(self.conn.table("inttradedata").count().execute()) == 0:
@@ -97,20 +99,17 @@ class DataProcess(DataPull):
 
         df = self.conn.table("inttradedata")
         units = self.conn.table("unittable")
-        df = df.join(units, df.unit1_id == units.id).rename(unit_1="unit_code")
-        df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code").to_polars()
-        df = self.conversion(df)
-        df = df.with_columns(year=pl.col("date").dt.year(), month=pl.col("date").dt.month())
+        df = self.conversion(df, units)
 
         if agr:
-            hts = self.conn.table("htstable").to_polars()
-            df.join(hts, left_on="hts_id", right_on="id").filter(pl.col("agri_prod") == True)
+            hts = self.conn.table("htstable").select("id", "agri_prod")
+            df = df.join(hts, df.hts_id == hts.id).filter(pl.col("agri_prod"))
 
         if group:
             #return self.process_cat(switch=switch)
             raise NotImplementedError("Grouping not implemented yet")
         else:
-            return self.process_data(switch=switch, base=df)
+            return self.process_data(switch=switch, df=df)
 
     def process_data(self, switch:list, df:ibis.expr.types.relations.Table) -> ibis.expr.types.relations.Table:
         """
@@ -135,7 +134,7 @@ class DataProcess(DataPull):
             case ["yearly", "total"]:
                 df = self.filter_data(df, ["year"])
                 return df.select(["year", "imports", "exports", "qty_imports", "qty_exports"])
-            
+
             case ["yearly", "naics"]:
                 df = self.filter_data(df, ["year", "naics_id"])
                 naics = self.conn.table("naicstable")
@@ -304,7 +303,7 @@ class DataProcess(DataPull):
             (pl.col("rank_exports").cast(pl.Int64) - pl.col("prev_year_rank_exports").cast(pl.Int64)).alias("rank_exports_change_year_over_year")
         ).sort(by=["date", "hs4"])
         return tmp
-        
+
     def process_cat(self, df:pl.DataFrame, switch:list):
 
         match switch:
