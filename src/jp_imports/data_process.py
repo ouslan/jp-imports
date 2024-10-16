@@ -50,7 +50,9 @@ class DataProcess(DataPull):
         """
         switch = [time, types]
         
-        if "jptradedata" not in self.conn.list_tables() or self.conn.table("jptradedata").count() == 0 or update:
+        if "jptradedata" not in self.conn.list_tables() or update:
+            self.pull_int_jp()
+        if int(self.conn.table("jptradedata").count().execute()) == 0:
             self.pull_int_jp()
         
         df = self.conn.table("jptradedata")
@@ -93,6 +95,8 @@ class DataProcess(DataPull):
         switch = [time, types]
 
         if "inttradedata" not in self.conn.list_tables() or update:
+            self.pull_int_org()
+        if int(self.conn.table("inttradedata").count().execute()) == 0:
             self.pull_int_org()
 
         df = self.conn.table("inttradedata")
@@ -391,7 +395,6 @@ class DataProcess(DataPull):
                 df = df.select(pl.col("*").exclude("year_right", "naics_right"))
                 df = df.with_columns(pl.col("imports", "exports", "imports_qty", "exports_qty").fill_null(strategy="zero")).sort("year", "naics")
                 df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
-
 
     def filter_data(self, df:pl.DataFrame, filter:list) -> pl.DataFrame:
         """

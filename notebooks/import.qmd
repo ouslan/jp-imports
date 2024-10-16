@@ -14,20 +14,26 @@ load_dotenv()
 ```
 
 ```{python}
-from src.dao.jp_imports_raw import create_trade_tables, select_all_jp_trade_data
+from src.dao.jp_imports_raw import create_trade_tables
 from sqlmodel import create_engine
 from datetime import datetime
 import polars as pl
 import pandas as pd
 import ibis
+
+ibis.options.interactive = True
 ```
 
 ```{python}
-engine = create_engine("sqlite:///db.sqlite")
+engine = create_engine("sqlite:///test_data.sqlite")
 database_url = "sqlite:///db.sqlite"
 database_url2 = "postgresql://postgres:password@localhost:5432/timescaledb"
 create_trade_tables(engine)
-#conn = ibis.connect(database_url)
+conn = ibis.sqlite.connect("test_data.sqlite")
+```
+
+```{python}
+jp_df = 
 ```
 
 ```{python}
@@ -93,7 +99,6 @@ jp_df = jp_df.join(unit, left_on="unit_2", right_on="unit_code", how="left").ren
 
 jp_df = jp_df.select(pl.col("date", "trade_id", "country_id", "sitc_id", "hts_id", "naics_id", "district_id", 
                             "unit1_id", "unit2_id", "data", "end_use_i", "end_use_e", "qty_1", "qty_2"))
-
 ```
 
 ```{python}

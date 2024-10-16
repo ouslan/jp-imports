@@ -24,13 +24,13 @@ import ibis
 ```
 
 ```{python}
-url = "postgresql://postgres:password@localhost:5433/timescaledb"
-url.split("://")[1].split(":")[2].split("/")[0]
+d = DataPull()
+d.conn.table("jptradedata")["id"].count().e
 ```
 
 ```{python}
-d = DataPull("postgresql://postgres:password@localhost:5433/timescaledb")
-d.pull_int_org()
+df = d.get_int_jp()
+df.head()
 ```
 
 ```{python}
