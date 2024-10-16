@@ -27,7 +27,7 @@ class DataProcess(DataPull):
         self.debug = debug
         super().__init__(database_url=database_url, saving_dir=self.saving_dir)
 
-    def process_int_jp(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> pl.DataFrame:
+    def process_int_jp(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Process the data for Puerto Rico Statistics Institute provided to JP.
 
@@ -48,19 +48,19 @@ class DataProcess(DataPull):
             Processed data. Requires df.collect() to view the data.
         """
         switch = [time, types]
-        
+
         if "jptradedata" not in self.conn.list_tables() or update:
             self.pull_int_jp()
         if int(self.conn.table("jptradedata").count().execute()) == 0:
             self.pull_int_jp()
-        
+
         df = self.conn.table("jptradedata")
         units = self.conn.table("unittable")
         df = self.conversion(df, units)
 
         if agr:
             hts = self.conn.table("htstable").select("id", "agri_prod")
-            df = df.join(hts, df.hts_id == hts.id).filter(pl.col("agri_prod") == True)
+            df = df.join(hts, df.hts_id == hts.id).filter(pl.col("agri_prod"))
 
         if group:
             #return self.process_cat(switch=switch)
@@ -68,7 +68,7 @@ class DataProcess(DataPull):
         else:
             return self.process_data(switch=switch, df=df)
 
-    def process_int_org(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> pl.DataFrame:
+    def process_int_org(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Process the data from Puerto Rico Statistics Institute.
 
@@ -90,6 +90,8 @@ class DataProcess(DataPull):
         """
         switch = [time, types]
 
+        if types == "naics":
+            raise ValueError("NAICS data is not available for Puerto Rico Statistics Institute.")
         if "inttradedata" not in self.conn.list_tables() or update:
             self.pull_int_org()
         if int(self.conn.table("inttradedata").count().execute()) == 0:
@@ -97,20 +99,17 @@ class DataProcess(DataPull):
 
         df = self.conn.table("inttradedata")
         units = self.conn.table("unittable")
-        df = df.join(units, df.unit1_id == units.id).rename(unit_1="unit_code")
-        df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code").to_polars()
-        df = self.conversion(df)
-        df = df.with_columns(year=pl.col("date").dt.year(), month=pl.col("date").dt.month())
+        df = self.conversion(df, units)
 
         if agr:
-            hts = self.conn.table("htstable").to_polars()
-            df.join(hts, left_on="hts_id", right_on="id").filter(pl.col("agri_prod") == True)
+            hts = self.conn.table("htstable").select("id", "agri_prod")
+            df = df.join(hts, df.hts_id == hts.id).filter(pl.col("agri_prod"))
 
         if group:
             #return self.process_cat(switch=switch)
             raise NotImplementedError("Grouping not implemented yet")
         else:
-            return self.process_data(switch=switch, base=df)
+            return self.process_data(switch=switch, df=df)
 
     def process_data(self, switch:list, df:ibis.expr.types.relations.Table) -> ibis.expr.types.relations.Table:
         """
@@ -135,7 +134,7 @@ class DataProcess(DataPull):
             case ["yearly", "total"]:
                 df = self.filter_data(df, ["year"])
                 return df.select(["year", "imports", "exports", "qty_imports", "qty_exports"])
-            
+
             case ["yearly", "naics"]:
                 df = self.filter_data(df, ["year", "naics_id"])
                 naics = self.conn.table("naicstable")
@@ -224,22 +223,22 @@ class DataProcess(DataPull):
                 raise ValueError(f"Invalid switch: {switch}")
 
     def process_price(self, agr:bool=False) -> pl.DataFrame:
-        df = self.process_int_org("monthly", "hts", agr)
+        df = self.process_int_org("monthly", "hts", agr).to_polars()
         hts = self.conn.table("htstable").to_polars()
         df = df.join(hts, left_on="hts_id", right_on="id")
-        df = df.with_columns(pl.col("imports_qty", "exports_qty").replace(0, 1))
+        df = df.with_columns(pl.col("qty_imports", "qty_exports").replace(0, 1))
         df = df.with_columns(hs4=pl.col("hts_code").str.slice(0, 4))
 
         df = df.group_by(pl.col("hs4", "month", "year")).agg(
             pl.col("imports").sum().alias("imports"),
             pl.col("exports").sum().alias("exports"), 
-            pl.col("imports_qty").sum().alias("imports_qty"), 
-            pl.col("exports_qty").sum().alias("exports_qty")
+            pl.col("qty_imports").sum().alias("qty_imports"), 
+            pl.col("qty_exports").sum().alias("qty_exports")
         )
 
         df = df.with_columns(
-            price_imports=pl.col("imports") / pl.col("imports_qty"),
-            price_exports=pl.col("exports") / pl.col("exports_qty")
+            price_imports=pl.col("imports") / pl.col("qty_imports"),
+            price_exports=pl.col("exports") / pl.col("qty_exports")
         )
 
         df = df.with_columns(date=pl.datetime(pl.col("year"), pl.col("month"), 1))
@@ -304,7 +303,7 @@ class DataProcess(DataPull):
             (pl.col("rank_exports").cast(pl.Int64) - pl.col("prev_year_rank_exports").cast(pl.Int64)).alias("rank_exports_change_year_over_year")
         ).sort(by=["date", "hs4"])
         return tmp
-        
+
     def process_cat(self, df:pl.DataFrame, switch:list):
 
         match switch:
@@ -313,7 +312,7 @@ class DataProcess(DataPull):
                 df = df.with_columns(year=pl.when(pl.col("year").is_null()).then(pl.col("year_right")).otherwise(pl.col("year")),
                                     naics=pl.when(pl.col("naics").is_null()).then(pl.col("naics_right")).otherwise(pl.col("naics")))
                 df = df.select(pl.col("*").exclude("year_right", "naics_right"))
-                df = df.with_columns(pl.col("imports", "exports", "imports_qty", "exports_qty").fill_null(strategy="zero")).sort("year", "naics")
+                df = df.with_columns(pl.col("imports", "exports", "qty_imports", "qty_exports").fill_null(strategy="zero")).sort("year", "naics")
                 df = df.with_columns(net_exports=pl.col("exports")-pl.col("imports"))
 
     def filter_data(self, df:ibis.expr.types.relations.Table, filters:list) -> ibis.expr.types.relations.Table:

@@ -28,6 +28,7 @@ class DataPull:
         self.database_url = database_url
         self.engine = create_engine(self.database_url)
         self.saving_dir = saving_dir
+
         if self.database_url.startswith("sqlite"):
             self.conn = ibis.sqlite.connect(self.database_url.replace("sqlite:///", ""))
         elif self.database_url.startswith("postgres"):
@@ -36,15 +37,9 @@ class DataPull:
                 password=self.database_url.split("://")[1].split(":")[1].split("@")[0],
                 host=self.database_url.split("://")[1].split(":")[1].split("@")[1],
                 port=self.database_url.split("://")[1].split(":")[2].split("/")[0],
-                database=self.database_url.split("://")[1].split(":")[2].split("/")[1]
-            )
+                database=self.database_url.split("://")[1].split(":")[2].split("/")[1])
         else:
             raise Exception("Database url is not supported")
-
-        if not os.path.exists(self.saving_dir + "external/code_classification.json"):
-            self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_classification.json", filename=(self.saving_dir + "external/code_classification.json"))
-        if not os.path.exists(self.saving_dir + "external/code_agr.json"):
-            self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_agr.json", filename=(self.saving_dir + "external/code_agr.json"))
 
         # Check if the saving directory exists
         if not os.path.exists(self.saving_dir + "raw"):
@@ -53,6 +48,13 @@ class DataPull:
             os.makedirs(self.saving_dir + "processed")
         if not os.path.exists(self.saving_dir + "external"):
             os.makedirs(self.saving_dir + "external")
+
+        # Pull required files
+        if not os.path.exists(self.saving_dir + "external/code_classification.json"):
+            self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_classification.json", filename=(self.saving_dir + "external/code_classification.json"))
+        if not os.path.exists(self.saving_dir + "external/code_agr.json"):
+            self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_agr.json", filename=(self.saving_dir + "external/code_agr.json"))
+
 
     def pull_int_org(self) -> None:
         """
