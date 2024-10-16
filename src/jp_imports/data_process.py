@@ -50,7 +50,7 @@ class DataProcess(DataPull):
         """
         switch = [time, types]
         
-        if "jptradedata" not in self.conn.list_tables() or update:
+        if "jptradedata" not in self.conn.list_tables() or self.conn.table("jptradedata").count() == 0 or update:
             self.pull_int_jp()
         
         df = self.conn.table("jptradedata")
