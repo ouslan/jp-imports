@@ -3,7 +3,7 @@ import polars as pl
 import ibis
 
 
-class DataProcess(DataPull):
+class DataTrade(DataPull):
     """
     Data processing class for the various data sources in DataPull.
     """
