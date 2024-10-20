@@ -14,7 +14,8 @@ class DataPull:
 
     """
 
-    def __init__(self, database_url:str='sqlite:///db.sqlite', saving_dir:str='data/', update:bool=False, debug:bool=False) -> None:
+    def __init__(self, database_url:str='sqlite:///db.sqlite', saving_dir:str='data/', 
+                        update:bool=False, debug:bool=False, dev:bool=False) -> None:
         """
         Parameters
         ----------
@@ -29,6 +30,8 @@ class DataPull:
         self.engine = create_engine(self.database_url)
         self.saving_dir = saving_dir
         self.debug = debug
+        self.dev = dev
+        self.update = update
 
         if self.database_url.startswith("sqlite"):
             self.conn = ibis.sqlite.connect(self.database_url.replace("sqlite:///", ""))
@@ -55,9 +58,9 @@ class DataPull:
             self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_classification.json", filename=(self.saving_dir + "external/code_classification.json"))
         if not os.path.exists(self.saving_dir + "external/code_agr.json"):
             self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_agr.json", filename=(self.saving_dir + "external/code_agr.json"))
-        if not os.path.exists(self.saving_dir + "raw/jp_instance.parquet") or update:
+        if not self.dev and not os.path.exists(self.saving_dir + "raw/org_data.parquet") or self.update:
             self.pull_int_org()
-        if not os.path.exists(self.saving_dir + "raw/jp_instance.csv") or update:
+        if not self.dev and not os.path.exists(self.saving_dir + "raw/jp_data.parquet") or self.update:
             self.pull_int_jp()
 
     def pull_int_org(self) -> None:
@@ -88,18 +91,18 @@ class DataPull:
         # Concatenate the files
         imports = pl.scan_csv(self.saving_dir + "raw/IMPORT_HTS10_ALL.csv", ignore_errors=True)
         exports = pl.scan_csv(self.saving_dir + "raw/EXPORT_HTS10_ALL.csv", ignore_errors=True)
-        pl.concat([imports, exports], how="vertical").collect().write_parquet(self.saving_dir + "raw/jp_instance.parquet")
+        pl.concat([imports, exports], how="vertical").collect().write_parquet(self.saving_dir + "raw/org_data.parquet")
 
         self.debug_log("finished extracting data from the Puerto Rico Institute of Statistics")
 
     def insert_int_org(self, file:str, update:bool=False) -> None:
 
-        if "jptradedata" in self.conn.list_tables() and not update:
+        if "jptradedata" in self.conn.list_tables() and not update or self.dev:
             hts = self.conn.table("htstable").to_polars().lazy()
             unit = self.conn.table("unittable").to_polars().lazy()
             country = self.conn.table("countrytable").to_polars().lazy()
         else:
-            self.insert_int_jp(os.path.join(self.saving_dir, "raw/jp_instance.parquet"), os.path.join(self.saving_dir, "raw/jp_instance.csv"))
+            self.insert_int_jp(os.path.join(self.saving_dir, "raw/jp_data.csv"), os.path.join(self.saving_dir, "external/code_agr.json"))
             hts = self.conn.table("htstable").to_polars().lazy()
             unit = self.conn.table("unittable").to_polars().lazy()
             country = self.conn.table("countrytable").to_polars().lazy()
@@ -139,10 +142,11 @@ class DataPull:
         -------
         None
         """
-        if not os.path.exists(self.saving_dir + "raw/jp_instance.csv") or update:
+        if not os.path.exists(self.saving_dir + "raw/jp_data.parquet") or update:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             url = "https://datos.estadisticas.pr/dataset/92d740af-97e4-4cb3-a990-2f4d4fa05324/resource/b4d10e3d-0924-498c-9c0d-81f00c958ca6/download/ftrade_all_iepr.csv"
-            self.pull_file(url=url, filename=(self.saving_dir + "raw/jp_instance.csv"), verify=False)
+            self.pull_file(url=url, filename=(self.saving_dir + "raw/jp_data.csv"), verify=False)
+            pl.read_csv(f"{self.saving_dir}/raw/jp_data.csv", ignore_errors=True).write_parquet(f"{self.saving_dir}/raw/jp_data.parquet")
 
         if self.debug:
              print("\033[0;36mINFO: \033[0m Pulling data from the Puerto Rico Institute of Statistics")
@@ -152,7 +156,7 @@ class DataPull:
         create_trade_tables(self.engine)
         agri_prod = pl.read_json(agr_file).transpose()
         agri_prod = agri_prod.with_columns(pl.nth(0).cast(pl.String).str.zfill(4)).to_series().to_list()
-        jp_df = pl.scan_csv(file, ignore_errors=True)
+        jp_df = pl.scan_parquet(file)
 
         # Normalize column names
         jp_df = jp_df.rename({col: col.lower() for col in jp_df.collect_schema().names()})

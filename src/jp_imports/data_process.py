@@ -1,6 +1,7 @@
 from .data_pull import DataPull
 import polars as pl
 import ibis
+import os
 
 
 class DataTrade(DataPull):
@@ -25,9 +26,17 @@ class DataTrade(DataPull):
         """
         self.saving_dir = saving_dir
         self.debug = debug
-        super().__init__(database_url=database_url, saving_dir=self.saving_dir)
+        self.jp_data = os.path.join(self.saving_dir, "raw/jp_data.csv") 
+        self.org_data = os.path.join(self.saving_dir, "raw/org_data.parquet")
+        self.agr_file = os.path.join(self.saving_dir, "external/agr_data.json")
+        super().__init__(database_url=database_url, saving_dir=self.saving_dir, debug=self.debug)
 
-    def process_int_jp(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> ibis.expr.types.relations.Table:
+    def process_int_jp(self,
+                       time:str,
+                       types:str,
+                       agr:bool=False,
+                       group:bool=False,
+                       update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Process the data for Puerto Rico Statistics Institute provided to JP.
 
@@ -50,9 +59,9 @@ class DataTrade(DataPull):
         switch = [time, types]
 
         if "jptradedata" not in self.conn.list_tables() or update:
-            self.pull_int_jp()
+            self.insert_int_jp(self.jp_data, self.agr_file)
         if int(self.conn.table("jptradedata").count().execute()) == 0:
-            self.pull_int_jp()
+            self.insert_int_jp(self.jp_data, self.agr_file)
 
         df = self.conn.table("jptradedata")
         units = self.conn.table("unittable")
@@ -93,9 +102,9 @@ class DataTrade(DataPull):
         if types == "naics":
             raise ValueError("NAICS data is not available for Puerto Rico Statistics Institute.")
         if "inttradedata" not in self.conn.list_tables() or update:
-            self.pull_int_org()
+            self.insert_int_org(self.org_data)
         if int(self.conn.table("inttradedata").count().execute()) == 0:
-            self.pull_int_org()
+            self.insert_int_org(self.org_data)
 
         df = self.conn.table("inttradedata")
         units = self.conn.table("unittable")
