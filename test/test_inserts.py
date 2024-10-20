@@ -8,10 +8,11 @@ import os
 
 @pytest.fixture(scope="module")
 def setup_database():
-    d = DataPull("sqlite:///test/test.sqlite", dev=True)
+    d = DataPull("sqlite:///test.sqlite", dev=True)
     d.insert_int_jp("test/test_inserts/jp_data_sample.parquet", "data/external/code_agr.json")
+    d.insert_int_org("test/test_inserts/org_data_sample.parquet")
     yield
-    os.remove("test/test.sqlite")
+    os.remove("test.sqlite")
 
 def test_jp_import(setup_database):
     conn = ibis.sqlite.connect("test.sqlite")
