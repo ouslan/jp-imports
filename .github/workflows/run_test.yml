@@ -18,7 +18,6 @@ jobs:
           cache: 'pip'
       - name: Install dependencies  
         run: |
-          python -m pip3 install --upgrade pip3
           pip3 install -r requirements.txt
       - name: Lint with Ruff  
         run: |  
