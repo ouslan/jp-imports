@@ -21,11 +21,12 @@ import ibis
 ibis.options.interactive = True
 
 d = DataPull("sqlite:///test.sqlite",debug=True, dev=True)
+d1 = DataTrade("sqlite:///test.sqlite", debug=True, dev=True)
 conn = ibis.sqlite.connect("test.sqlite")
 ```
 
 ```{python}
-d.insert_int_jp("test/test_inserts/jp_data_sample.csv", "data/external/code_agr.json")
+d.insert_int_jp("test/test_inserts/jp_data_sample.parquet", "data/external/code_agr.json")
 d.insert_int_org("test/test_inserts/org_data_sample.parquet")
 ```
 
@@ -34,7 +35,8 @@ conn.table("inttradedata").to_parquet("test/test_inserts/test_org_data.parquet")
 ```
 
 ```{python}
-df1 = conn.table("inttradedata").to_polars()
-df2 = pl.read_parquet("test/test_inserts/test_org_data.parquet")
-assert_frame_equal(df1, df2, check_dtypes=False)
+time = "yearly"
+types = "total"
+df = d1.process_int_org(time, types, agr=True)
+df.to_polars()
 ```

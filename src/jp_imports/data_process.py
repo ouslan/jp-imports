@@ -9,7 +9,7 @@ class DataTrade(DataPull):
     Data processing class for the various data sources in DataPull.
     """
 
-    def __init__(self, database_url:str='sqlite:///db.sqlite', saving_dir:str="data/", debug:bool=False):
+    def __init__(self, database_url:str='sqlite:///db.sqlite', saving_dir:str="data/", dev:bool=False, debug:bool=False):
         """
         Initialize the DataProcess class.
 
@@ -26,10 +26,11 @@ class DataTrade(DataPull):
         """
         self.saving_dir = saving_dir
         self.debug = debug
+        self.dev = dev
         self.jp_data = os.path.join(self.saving_dir, "raw/jp_data.csv") 
         self.org_data = os.path.join(self.saving_dir, "raw/org_data.parquet")
         self.agr_file = os.path.join(self.saving_dir, "external/agr_data.json")
-        super().__init__(database_url=database_url, saving_dir=self.saving_dir, debug=self.debug)
+        super().__init__(database_url=database_url, saving_dir=self.saving_dir, debug=self.debug, dev=self.dev)
 
     def process_int_jp(self,
                        time:str,
@@ -112,7 +113,7 @@ class DataTrade(DataPull):
 
         if agr:
             hts = self.conn.table("htstable").select("id", "agri_prod")
-            df = df.join(hts, df.hts_id == hts.id).filter(pl.col("agri_prod"))
+            df = df.join(hts, df.hts_id == hts.id).filter(df.agri_prod)
 
         if group:
             #return self.process_cat(switch=switch)
