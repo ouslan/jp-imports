@@ -25,5 +25,5 @@ conn = ibis.sqlite.connect("db.sqlite")
 time = "yearly"
 types = "naics"
 df = d.process_int_jp(time, types)
-df.columns
+df.head().execute()
 ```
