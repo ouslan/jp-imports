@@ -8,7 +8,7 @@ import os
 
 @pytest.fixture(scope="module")
 def setup_database():
-    d = DataPull("sqlite:///test/test.sqlite", debug=True, dev=True)
+    d = DataPull("sqlite:///test/test.sqlite", dev=True)
     d.insert_int_jp("test/test_inserts/jp_data_sample.parquet", "data/external/code_agr.json")
     yield
     os.remove("test/test.sqlite")
