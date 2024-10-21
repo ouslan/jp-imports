@@ -23,12 +23,12 @@ from datetime import datetime
 import polars as pl
 import ibis
 
-d = DataTrade()
+d = DataTrade(debug=True)
 conn = ibis.sqlite.connect("db.sqlite")
 ```
 
 ```{python}
-time = "yearly"
+time = "monthly"
 types = "total"
 df = d.process_int_org(time, types)
 df.to_polars()

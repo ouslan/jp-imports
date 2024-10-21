@@ -20,8 +20,8 @@ import ibis
 
 ibis.options.interactive = True
 
-d = DataPull("sqlite:///test.sqlite",debug=True, dev=True)
-d1 = DataTrade("sqlite:///test.sqlite", debug=True, dev=True)
+d = DataPull("sqlite:///test.sqlite",debug=True)
+d1 = DataTrade("sqlite:///test.sqlite", debug=True)
 conn = ibis.sqlite.connect("test.sqlite")
 ```
 
