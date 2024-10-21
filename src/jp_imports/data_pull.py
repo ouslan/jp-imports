@@ -102,7 +102,7 @@ class DataPull:
             unit = self.conn.table("unittable").to_polars().lazy()
             country = self.conn.table("countrytable").to_polars().lazy()
         else:
-            self.insert_int_jp(os.path.join(self.saving_dir, "raw/jp_data.csv"), os.path.join(self.saving_dir, "external/code_agr.json"))
+            self.insert_int_jp(os.path.join(self.saving_dir, "raw/jp_data.parquet"), os.path.join(self.saving_dir, "external/code_agr.json"))
             hts = self.conn.table("htstable").to_polars().lazy()
             unit = self.conn.table("unittable").to_polars().lazy()
             country = self.conn.table("countrytable").to_polars().lazy()

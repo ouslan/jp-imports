@@ -31,7 +31,11 @@ d.insert_int_org("test/test_inserts/org_data_sample.parquet")
 ```
 
 ```{python}
-conn.table("inttradedata").to_parquet("test/test_inserts/test_org_data.parquet")
+df = conn.table("inttradedata")
+hts = conn.table("htstable").select("id", "agri_prod").rename(agr_id="id")
+df = df.join(hts, df.hts_id == hts.agr_id)
+df = df.filter(df.agri_prod)
+df.mutate(unit2_id=df.unit2_id.fillna(df.unit1_id))
 ```
 
 ```{python}
@@ -39,4 +43,25 @@ time = "yearly"
 types = "total"
 df = d1.process_int_org(time, types, agr=True)
 df.to_polars()
+```
+
+```{python}
+for time in ["yearly", "fiscal", "qrt", "monthly"]:
+  for types in ["total", "naics", "hts"]:
+    for ag in [True, False]
+      df.process_int_jp(time, types, ag)
+```
+
+
+```{python}
+df = d1.conn.table("inttradedata")
+units = d1.conn.table("unittable")
+hts = d1.conn.table("htstable").select("id", "agri_prod").rename(agr_id="id")
+df = df.join(hts, df.hts_id == hts.agr_id)
+df = df.filter(df.agri_prod).drop(["agr_id", "agri_prod"])
+df = df.join(units, df.unit1_id == units.id).rename(unit_1="unit_code")
+df = df.mutate(unit2_id=df.unit2_id.fill_null(df.unit1_id))
+df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code")
+df = d1.conversion(df, units)
+df
 ```

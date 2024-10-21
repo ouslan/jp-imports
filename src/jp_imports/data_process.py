@@ -27,9 +27,9 @@ class DataTrade(DataPull):
         self.saving_dir = saving_dir
         self.debug = debug
         self.dev = dev
-        self.jp_data = os.path.join(self.saving_dir, "raw/jp_data.csv") 
+        self.jp_data = os.path.join(self.saving_dir, "raw/jp_data.parquet") 
         self.org_data = os.path.join(self.saving_dir, "raw/org_data.parquet")
-        self.agr_file = os.path.join(self.saving_dir, "external/agr_data.json")
+        self.agr_file = os.path.join(self.saving_dir, "external/code_agr.json")
         super().__init__(database_url=database_url, saving_dir=self.saving_dir, debug=self.debug, dev=self.dev)
 
     def process_int_jp(self,
@@ -63,14 +63,15 @@ class DataTrade(DataPull):
             self.insert_int_jp(self.jp_data, self.agr_file)
         if int(self.conn.table("jptradedata").count().execute()) == 0:
             self.insert_int_jp(self.jp_data, self.agr_file)
-
         df = self.conn.table("jptradedata")
         units = self.conn.table("unittable")
-        df = self.conversion(df, units)
 
         if agr:
-            hts = self.conn.table("htstable").select("id", "agri_prod")
-            df = df.join(hts, df.hts_id == hts.id).filter(pl.col("agri_prod"))
+            hts = self.conn.table("htstable").select("id", "agri_prod").rename(agr_id="id")
+            df = df.join(hts, df.hts_id == hts.agr_id)
+            df = df.filter(df.agri_prod)
+
+        df = self.conversion(df, units)
 
         if group:
             #return self.process_cat(switch=switch)
@@ -109,11 +110,13 @@ class DataTrade(DataPull):
 
         df = self.conn.table("inttradedata")
         units = self.conn.table("unittable")
-        df = self.conversion(df, units)
 
         if agr:
-            hts = self.conn.table("htstable").select("id", "agri_prod")
-            df = df.join(hts, df.hts_id == hts.id).filter(df.agri_prod)
+            hts = self.conn.table("htstable").select("id", "agri_prod").rename(agr_id="id")
+            df = df.join(hts, df.hts_id == hts.agr_id)
+            df = df.filter(df.agri_prod)
+
+        df = self.conversion(df, units)
 
         if group:
             #return self.process_cat(switch=switch)
@@ -372,6 +375,7 @@ class DataTrade(DataPull):
         """
 
         df = df.join(units, df.unit1_id == units.id).rename(unit_1="unit_code")
+        df = df.mutate(unit2_id=df.unit2_id.fill_null(df.unit1_id))
         df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code")
         df = df.mutate(
             conv_1=ibis.case()
@@ -408,7 +412,7 @@ class DataTrade(DataPull):
                 .else_(df.date.year())
                 .end())
         df = df.mutate(
-            qty=df.conv_1 + df.conv_2,
+            qty=df.conv_1,
             year=df.date.year(),
             month=df.date.month(),
             )
