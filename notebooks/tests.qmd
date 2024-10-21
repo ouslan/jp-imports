@@ -20,8 +20,8 @@ import ibis
 
 ibis.options.interactive = True
 
-d = DataPull("sqlite:///test.sqlite",debug=True)
-d1 = DataTrade("sqlite:///test.sqlite", debug=True)
+d = DataPull("sqlite:///test.sqlite", debug=True, dev=True)
+d1 = DataTrade("sqlite:///test.sqlite", debug=True, dev=True)
 conn = ibis.sqlite.connect("test.sqlite")
 ```
 
@@ -39,17 +39,17 @@ df.mutate(unit2_id=df.unit2_id.fillna(df.unit1_id))
 ```
 
 ```{python}
-time = "yearly"
-types = "total"
-df = d1.process_int_org(time, types, agr=True)
+time = "monthly"
+types = "hts"
+df = d1.process_int_org(time, types, agr=False)
 df.to_polars()
 ```
 
 ```{python}
 for time in ["yearly", "fiscal", "qrt", "monthly"]:
   for types in ["total", "naics", "hts"]:
-    for ag in [True, False]
-      df.process_int_jp(time, types, ag)
+    for ag in [True, False]:
+      d1.process_int_jp(time, types, ag).to_parquet(f"test/test_inserts/jp_results_{time}_{types}_{ag}.parquet")
 ```
 
 
@@ -63,5 +63,5 @@ df = df.join(units, df.unit1_id == units.id).rename(unit_1="unit_code")
 df = df.mutate(unit2_id=df.unit2_id.fill_null(df.unit1_id))
 df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code")
 df = d1.conversion(df, units)
-df
+d1.filter_data(df, ["year", "month", "hts_id"])
 ```
