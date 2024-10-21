@@ -14,7 +14,7 @@ load_dotenv()
 ```
 
 ```{python}
-from src.jp_imports.data_process import DataProcess
+from src.jp_imports.data_process import DataTrade
 from src.jp_imports.data_pull import DataPull
 # from plotly.subplots import make_subplots
 # import plotly.graph_objects as go
@@ -23,14 +23,14 @@ from datetime import datetime
 import polars as pl
 import ibis
 
-d = DataProcess()
+d = DataTrade(debug=True)
 conn = ibis.sqlite.connect("db.sqlite")
 ```
 
 ```{python}
-time = "yearly"
-types = "naics"
-df = d.process_int_org(time, types)
+time = "monthly"
+types = "hts"
+df = d.process_int_org(time, types,True)
 df.to_polars()
 ```
 

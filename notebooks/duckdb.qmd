@@ -24,14 +24,14 @@ import ibis
 ```
 
 ```{python}
-d = DataPull()
-d.conn.table("jptradedata")["id"].count().e
+d = DataPull(debug=True)
 ```
 
 ```{python}
-df = d.get_int_jp()
-df.head()
+d.insert_int_org("data/raw/jp_instance.parquet")
 ```
+
+
 
 ```{python}
 con = ibis.connect("db.sqlite")

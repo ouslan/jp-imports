@@ -1,14 +1,15 @@
 from .data_pull import DataPull
 import polars as pl
 import ibis
+import os
 
 
-class DataProcess(DataPull):
+class DataTrade(DataPull):
     """
     Data processing class for the various data sources in DataPull.
     """
 
-    def __init__(self, database_url:str='sqlite:///db.sqlite', saving_dir:str="data/", debug:bool=False):
+    def __init__(self, database_url:str='sqlite:///db.sqlite', saving_dir:str="data/", dev:bool=False, debug:bool=False):
         """
         Initialize the DataProcess class.
 
@@ -25,9 +26,18 @@ class DataProcess(DataPull):
         """
         self.saving_dir = saving_dir
         self.debug = debug
-        super().__init__(database_url=database_url, saving_dir=self.saving_dir)
+        self.dev = dev
+        self.jp_data = os.path.join(self.saving_dir, "raw/jp_data.parquet") 
+        self.org_data = os.path.join(self.saving_dir, "raw/org_data.parquet")
+        self.agr_file = os.path.join(self.saving_dir, "external/code_agr.json")
+        super().__init__(database_url=database_url, saving_dir=self.saving_dir, debug=self.debug, dev=self.dev)
 
-    def process_int_jp(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> ibis.expr.types.relations.Table:
+    def process_int_jp(self,
+                       time:str,
+                       types:str,
+                       agr:bool=False,
+                       group:bool=False,
+                       update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Process the data for Puerto Rico Statistics Institute provided to JP.
 
@@ -50,17 +60,18 @@ class DataProcess(DataPull):
         switch = [time, types]
 
         if "jptradedata" not in self.conn.list_tables() or update:
-            self.pull_int_jp()
+            self.insert_int_jp(self.jp_data, self.agr_file)
         if int(self.conn.table("jptradedata").count().execute()) == 0:
-            self.pull_int_jp()
-
+            self.insert_int_jp(self.jp_data, self.agr_file)
         df = self.conn.table("jptradedata")
         units = self.conn.table("unittable")
-        df = self.conversion(df, units)
 
         if agr:
-            hts = self.conn.table("htstable").select("id", "agri_prod")
-            df = df.join(hts, df.hts_id == hts.id).filter(pl.col("agri_prod"))
+            hts = self.conn.table("htstable").select("id", "agri_prod").rename(agr_id="id")
+            df = df.join(hts, df.hts_id == hts.agr_id)
+            df = df.filter(df.agri_prod)
+
+        df = self.conversion(df, units)
 
         if group:
             #return self.process_cat(switch=switch)
@@ -93,17 +104,19 @@ class DataProcess(DataPull):
         if types == "naics":
             raise ValueError("NAICS data is not available for Puerto Rico Statistics Institute.")
         if "inttradedata" not in self.conn.list_tables() or update:
-            self.pull_int_org()
+            self.insert_int_org(self.org_data)
         if int(self.conn.table("inttradedata").count().execute()) == 0:
-            self.pull_int_org()
+            self.insert_int_org(self.org_data)
 
         df = self.conn.table("inttradedata")
         units = self.conn.table("unittable")
-        df = self.conversion(df, units)
 
         if agr:
-            hts = self.conn.table("htstable").select("id", "agri_prod")
-            df = df.join(hts, df.hts_id == hts.id).filter(pl.col("agri_prod"))
+            hts = self.conn.table("htstable").select("id", "agri_prod").rename(agr_id="id")
+            df = df.join(hts, df.hts_id == hts.agr_id)
+            df = df.filter(df.agri_prod)
+
+        df = self.conversion(df, units)
 
         if group:
             #return self.process_cat(switch=switch)
@@ -133,88 +146,137 @@ class DataProcess(DataPull):
         match switch:
             case ["yearly", "total"]:
                 df = self.filter_data(df, ["year"])
+                df = df.mutate(year=df.year.fill_null(df.year_right))
                 return df.select(["year", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["yearly", "naics"]:
                 df = self.filter_data(df, ["year", "naics_id"])
+                df = df.mutate(
+                        year=df.year.fill_null(df.year_right),
+                        naics_id=df.naics_id.fill_null(df.naics_id_right))
                 naics = self.conn.table("naicstable")
                 df = df.join(naics, df.naics_id == naics.id)
                 return df.select(["year", "naics_id", "naics_code", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["yearly", "hts"]:
                 df = self.filter_data(df, ["year", "hts_id"])
+                df = df.mutate(
+                        year=df.year.fill_null(df.year_right),
+                        hts_id=df.hts_id.fill_null(df.hts_id_right))
                 hts = self.conn.table("htstable")
                 df = df.join(hts, df.hts_id == hts.id)
                 return df.select(["year", "hts_id", "hts_code", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["yearly", "country"]:
                 df = self.filter_data(df, ["year", "country_id"])
+                df = df.mutate(
+                        year=df.year.fill_null(df.year_right),
+                        country_id=df.country_id.fill_null(df.country_id_right))
                 countries = self.conn.table("countrytable")
                 df = df.join(countries, df.country_id == countries.id)
                 return df.select(["year", "country_id", "cty_code", "country_name", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["fiscal", "total"]:
                 df = self.filter_data(df, ["fiscal_year"])
+                df = df.mutate(fiscal_year=df.fiscal_year.fill_null(df.fiscal_year_right))
                 return df.select(["fiscal_year", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["fiscal", "naics"]:
                 df = self.filter_data(df, ["fiscal_year", "naics_id"])
+                df = df.mutate(
+                        fiscal_year=df.fiscal_year.fill_null(df.fiscal_year_right),
+                        naics_id=df.naics_id.fill_null(df.naics_id_right))
                 naics = self.conn.table("naicstable")
                 df = df.join(naics, df.naics_id == naics.id)
                 return df.select(["fiscal_year", "naics_id", "naics_code", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["fiscal", "hts"]:
                 df = self.filter_data(df, ["fiscal_year", "hts_id"])
+                df = df.mutate(
+                        fiscal_year=df.fiscal_year.fill_null(df.fiscal_year_right),
+                        hts_id=df.hts_id.fill_null(df.hts_id_right))
                 hts = self.conn.table("htstable")
                 df = df.join(hts, df.hts_id == hts.id)
                 return df.select(["fiscal_year", "hts_id", "hts_code", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["fiscal", "country"]:
                 df = self.filter_data(df, ["fiscal_year", "country_id"])
+                df = df.mutate(
+                        fiscal_year=df.fiscal_year.fill_null(df.fiscal_year_right),
+                        country_id=df.country_id.fill_null(df.country_id_right))
                 countries = self.conn.table("countrytable")
                 df = df.join(countries, df.country_id == countries.id)
                 return df.select(["fiscal_year", "country_id", "cty_code", "country_name", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["qrt", "total"]:
                 df = self.filter_data(df, ["year", "qrt"])
+                df = df.mutate(year=df.year.fill_null(df.year_right),
+                                qrt=df.qrt.fill_null(df.qrt_right))
                 return df.select(["year", "qrt", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["qrt", "naics"]:
                 df = self.filter_data(df, ["year", "qrt", "naics_id"])
+                df = df.mutate(
+                        year=df.year.fill_null(df.year_right),
+                        qrt=df.qrt.fill_null(df.qrt_right),
+                        naics_id=df.naics_id.fill_null(df.naics_id_right))
                 naics = self.conn.table("naicstable")
                 df = df.join(naics, df.naics_id == naics.id)
                 return df.select(["year", "qrt", "naics_id", "naics_code", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["qrt", "hts"]:
                 df = self.filter_data(df, ["year", "qrt", "hts_id"])
+                df = df.mutate(
+                        year=df.year.fill_null(df.year_right),
+                        qrt=df.qrt.fill_null(df.qrt_right),
+                        hts_id=df.hts_id.fill_null(df.hts_id_right))
                 hts = self.conn.table("htstable")
                 df = df.join(hts, df.hts_id == hts.id)
                 return df.select(["year", "qrt", "hts_id", "hts_code", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["qrt", "country"]:
                 df = self.filter_data(df, ["year", "qrt", "country_id"])
+                df = df.mutate(
+                        year=df.year.fill_null(df.year_right),
+                        qrt=df.qrt.fill_null(df.qrt_right),
+                        country_id=df.country_id.fill_null(df.country_id_right))
                 countries = self.conn.table("countrytable")
                 df = df.join(countries, df.country_id == countries.id)
                 return df.select(["year", "qrt", "country_id", "cty_code", "country_name", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["monthly", "total"]:
                 df = self.filter_data(df, ["year", "month"])
+                df = df.mutate(
+                        year=df.year.fill_null(df.year_right),
+                        month=df.month.fill_null(df.month_right))
                 return df.select(["year", "month", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["monthly", "naics"]:
                 df = self.filter_data(df, ["year", "month", "naics_id"])
+                df = df.mutate(
+                        year=df.year.fill_null(df.year_right),
+                        month=df.month.fill_null(df.month_right),
+                        naics_id=df.naics_id.fill_null(df.naics_id_right))
                 naics = self.conn.table("naicstable")
                 df = df.join(naics, df.naics_id == naics.id)
                 return df.select(["year", "month", "naics_id", "naics_code", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["monthly", "hts"]:
                 df = self.filter_data(df, ["year", "month", "hts_id"])
+                df = df.mutate(
+                        year=df.year.fill_null(df.year_right),
+                        month=df.month.fill_null(df.month_right),
+                        hts_id=df.hts_id.fill_null(df.hts_id_right))
                 hts = self.conn.table("htstable")
                 df = df.join(hts, df.hts_id == hts.id)
                 return df.select(["year", "month", "hts_id", "hts_code", "imports", "exports", "qty_imports", "qty_exports"])
 
             case ["monthly", "country"]:
                 df = self.filter_data(df, ["year", "month", "country_id"])
+                df = df.mutate(
+                        year=df.year.fill_null(df.year_right),
+                        month=df.month.fill_null(df.month_right),
+                        country_id=df.country_id.fill_null(df.country_id_right))
                 countries = self.conn.table("countrytable")
                 df = df.join(countries, df.country_id == countries.id)
                 return df.select(["year", "month", "country_id", "cty_code", "country_name", "imports", "exports", "qty_imports", "qty_exports"])
@@ -338,11 +400,15 @@ class DataProcess(DataPull):
         exports = df.filter(df.trade_id == 2).group_by(filters).aggregate(
             [df.data.sum().name("exports"), df.qty.sum().name("qty_exports")]
         )
-        df = imports.join(exports, filters)
+        df = imports.join(exports, predicates=filters, how="outer")
         df = df.mutate(
-            net_exports=df.exports - df.imports,
-            net_qty=df.qty_exports - df.qty_imports,
-        )
+            imports=df.imports.fill_null(0),
+            exports=df.exports.fill_null(0),
+            qty_imports=df.qty_imports.fill_null(0),
+            qty_exports=df.qty_exports.fill_null(0))
+        df = df.mutate(
+            net_exports=df.exports - df.imports, 
+            net_qty=df.qty_exports - df.qty_imports)
 
         return df
 
@@ -362,6 +428,7 @@ class DataProcess(DataPull):
         """
 
         df = df.join(units, df.unit1_id == units.id).rename(unit_1="unit_code")
+        df = df.mutate(unit2_id=df.unit2_id.fill_null(df.unit1_id))
         df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code")
         df = df.mutate(
             conv_1=ibis.case()
@@ -398,7 +465,7 @@ class DataProcess(DataPull):
                 .else_(df.date.year())
                 .end())
         df = df.mutate(
-            qty=df.conv_1 + df.conv_2,
+            qty=df.conv_1,
             year=df.date.year(),
             month=df.date.month(),
             )
