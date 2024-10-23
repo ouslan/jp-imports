@@ -285,7 +285,7 @@ class DataTrade(DataPull):
                 raise ValueError(f"Invalid switch: {switch}")
 
     def process_price(self, agr:bool=False) -> pl.DataFrame:
-        df = self.process_int_org("monthly", "hts", agr).to_polars()
+        df = pl.from_pandas(self.process_int_org("monthly", "hts", agr).to_pandas())
         hts = self.conn.table("htstable").to_polars()
         df = df.join(hts, left_on="hts_id", right_on="id")
         df = df.with_columns(pl.col("qty_imports", "qty_exports").replace(0, 1))

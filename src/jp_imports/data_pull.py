@@ -53,16 +53,6 @@ class DataPull:
         if not os.path.exists(self.saving_dir + "external"):
             os.makedirs(self.saving_dir + "external")
 
-        # Pull required files
-        if not os.path.exists(self.saving_dir + "external/code_classification.json"):
-            self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_classification.json", filename=(self.saving_dir + "external/code_classification.json"))
-        if not os.path.exists(self.saving_dir + "external/code_agr.json"):
-            self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_agr.json", filename=(self.saving_dir + "external/code_agr.json"))
-        if not self.dev and not os.path.exists(self.saving_dir + "raw/org_data.parquet") or self.update:
-            self.pull_int_org()
-        if not self.dev and not os.path.exists(self.saving_dir + "raw/jp_data.parquet") or self.update:
-            self.pull_int_jp()
-
     def pull_int_org(self) -> None:
         """
         Pulls data from the Puerto Rico Institute of Statistics. Saves them in the 
@@ -102,6 +92,8 @@ class DataPull:
             unit = self.conn.table("unittable").to_polars().lazy()
             country = self.conn.table("countrytable").to_polars().lazy()
         else:
+            if not self.dev and not os.path.exists(self.saving_dir + "raw/org_data.parquet") or self.update:
+                self.pull_int_org()
             self.insert_int_jp(os.path.join(self.saving_dir, "raw/jp_data.parquet"), os.path.join(self.saving_dir, "external/code_agr.json"))
             hts = self.conn.table("htstable").to_polars().lazy()
             unit = self.conn.table("unittable").to_polars().lazy()
@@ -124,10 +116,11 @@ class DataPull:
         int_df = int_df.join(unit, left_on="unit_2", right_on="unit_code", how="left").rename({"id": "unit2_id"})
 
         int_df = int_df.select(pl.col("date", "trade_id", "country_id", "hts_id",
-                                            "unit1_id", "unit2_id", "data", "qty_1", "qty_2"))
+                                            "unit1_id", "unit2_id", "data", "qty_1", "qty_2"))#.with_columns(pl.all().exclude("date").cast(pl.Int64))
         self.conn.insert("inttradedata", int_df.collect())
 
         self.debug_log("finished inserting data into the database")
+        # return int_df.collect()
 
     def pull_int_jp(self, update:bool=False) -> None:
         """
@@ -142,6 +135,10 @@ class DataPull:
         -------
         None
         """
+        if not os.path.exists(self.saving_dir + "external/code_classification.json"):
+            self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_classification.json", filename=(self.saving_dir + "external/code_classification.json"))
+        if not os.path.exists(self.saving_dir + "external/code_agr.json"):
+            self.pull_file(url="https://raw.githubusercontent.com/ouslan/jp-imports/main/data/external/code_agr.json", filename=(self.saving_dir + "external/code_agr.json"))
         if not os.path.exists(self.saving_dir + "raw/jp_data.parquet") or update:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             url = "https://datos.estadisticas.pr/dataset/92d740af-97e4-4cb3-a990-2f4d4fa05324/resource/b4d10e3d-0924-498c-9c0d-81f00c958ca6/download/ftrade_all_iepr.csv"
@@ -153,6 +150,8 @@ class DataPull:
 
     def insert_int_jp(self, file:str, agr_file:str) -> None:
         # Prepare to insert to database
+        if not self.dev and not os.path.exists(self.saving_dir + "raw/jp_data.parquet") or self.update:
+            self.pull_int_jp()
         create_trade_tables(self.engine)
         agri_prod = pl.read_json(agr_file).transpose()
         agri_prod = agri_prod.with_columns(pl.nth(0).cast(pl.String).str.zfill(4)).to_series().to_list()

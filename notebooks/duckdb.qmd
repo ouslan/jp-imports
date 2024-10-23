@@ -24,20 +24,24 @@ import ibis
 ```
 
 ```{python}
-d = DataPull(debug=True)
+d = DataPull(database_url="postgresql://postgres:password@localhost:5432/timescaledb", debug=True)
 ```
 
 ```{python}
-d.insert_int_org("data/raw/jp_instance.parquet")
+df = d.insert_int_org("data/raw/org_data.parquet")
+#df.filter(pl.col("data") == 139202)
 ```
 
-
+```{python}
+df = d.conn.table("jptradedata").to_polars()
+df.filter((pl.col("hts_id") == 4813)).sort("data")
+```
 
 ```{python}
 con = ibis.connect("db.sqlite")
 imports = pl.scan_csv("data/raw/IMPORT_HTS10_ALL.csv", ignore_errors=True)
 exports = pl.scan_csv("data/raw/EXPORT_HTS10_ALL.csv", ignore_errors=True)
-df = pl.concat([imports, exports], how="vertical")
+df = pl.concat([imports, exports], how="replace")
 df.collect()
 ```
 

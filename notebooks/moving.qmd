@@ -23,7 +23,7 @@ from datetime import datetime
 import polars as pl
 import ibis
 
-d = DataTrade(debug=True)
+d = DataTrade(database_url="postgresql://postgres:password@localhost:5432/timescaledb", debug=True)
 conn = ibis.sqlite.connect("db.sqlite")
 ```
 
@@ -31,7 +31,7 @@ conn = ibis.sqlite.connect("db.sqlite")
 time = "monthly"
 types = "hts"
 df = d.process_int_org(time, types,True)
-df.to_polars()
+pl.from_pandas(df.to_pandas())
 ```
 
 ```{python}
