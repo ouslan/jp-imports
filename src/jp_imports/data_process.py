@@ -439,7 +439,7 @@ class DataTrade(DataPull):
                 .when(df.unit_1 == "t", df.qty_1 * 907.185)
                 .when(df.unit_1 == "kts", df.qty_1 * 1)
                 .when(df.unit_1 == "pfl", df.qty_1 * 0.789)
-                .when(df.unit_1 == "gm", df.qty_1 * 1000)
+                .when(df.unit_1 == "gm", df.qty_1 * 0.001)
                 .else_(df.qty_1)
                 .end(),
             conv_2=ibis.case()
@@ -450,7 +450,7 @@ class DataTrade(DataPull):
                 .when(df.unit_2 == "t", df.qty_2 * 907.185)
                 .when(df.unit_2 == "kts", df.qty_2 * 1)
                 .when(df.unit_2 == "pfl", df.qty_2 * 0.789)
-                .when(df.unit_2 == "gm", df.qty_2 * 1000)
+                .when(df.unit_2 == "gm", df.qty_2 * 0.001)
                 .else_(df.qty_2)
                 .end(),
             qrt=ibis.case()
@@ -469,5 +469,4 @@ class DataTrade(DataPull):
             year=df.date.year(),
             month=df.date.month(),
             )
-
         return df
