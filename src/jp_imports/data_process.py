@@ -404,12 +404,11 @@ class DataTrade(DataPull):
         df = df.mutate(
             imports=df.imports.fill_null(0),
             exports=df.exports.fill_null(0),
-            qty_imports=df.qty_imports.fill_null(0),
-            qty_exports=df.qty_exports.fill_null(0))
+            qty_imports=df.qty_imports.fill_null(0).round(2),
+            qty_exports=df.qty_exports.fill_null(0).round(2))
         df = df.mutate(
             net_exports=df.exports - df.imports, 
             net_qty=df.qty_exports - df.qty_imports)
-
         return df
 
     def conversion(self, df:ibis.expr.types.relations.Table, units:ibis.expr.types.relations.Table) -> ibis.expr.types.relations.Table:

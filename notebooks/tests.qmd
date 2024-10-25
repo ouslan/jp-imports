@@ -49,7 +49,14 @@ df.to_polars()
 for time in ["yearly", "fiscal", "qrt", "monthly"]:
   for types in ["total", "hts", "naics"]:
     for ag in [True, False]:
-      d1.process_int_jp(time, types, ag).to_parquet(f"test/test_inserts/jp_results_{time}_{types}_{ag}.parquet")
+      d1.process_int_jp(time, types, ag).to_parquet(f"test/test_outputs/jp_results_{time}_{types}_{ag}.parquet")
+```
+
+```{python}
+for time in ["yearly", "fiscal", "qrt", "monthly"]:
+  for types in ["total", "hts"]:
+    for ag in [True, False]:
+      d1.process_int_org(time, types, ag).to_parquet(f"test/test_outputs/org_results_{time}_{types}_{ag}.parquet")
 ```
 
 
