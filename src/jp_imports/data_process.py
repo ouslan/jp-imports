@@ -365,6 +365,86 @@ class DataTrade(DataPull):
             (pl.col("rank_exports").cast(pl.Int64) - pl.col("prev_year_rank_exports").cast(pl.Int64)).alias("rank_exports_change_year_over_year")
         ).sort(by=["date", "hs4"])
         return tmp
+    def process_price2(self, agr:bool=False) -> ibis.expr.types.relations.Table:
+        df = self.process_int_org("monthly", "hts", agr)
+        hts = self.conn.table("htstable").select("id","hts_code").rename(hts_id="id")
+        df = df.join(hts, "hts_id", how="left")
+        df = df.mutate(
+        date=ibis.date(df.year.cast("string") + "-" + df.month.cast("string") + "-01"),
+        qty_imports=df.qty_imports.substitute(0,1),
+        qty_exports=df.qty_exports.substitute(0,1),
+        hs4=df.hts_code[0:4]
+        )
+        df = df.group_by(["date","hs4"]).aggregate([
+        df.imports.sum().name("imports"),
+        df.exports.sum().name("exports"),
+        df.qty_imports.sum().name("qty_imports"),
+        df.qty_exports.sum().name("qty_exports")
+        ]
+        )
+        df = df.mutate(
+        price_imports=df.imports / df.qty_imports,
+        price_exports=df.exports / df.qty_exports,
+        )
+        df = df.mutate(
+        moving_price_imports=df.price_imports.mean().over(
+            range=(-ibis.interval(months=2), 0),
+            group_by=df.hs4,
+            order_by=df.date,
+        ),
+        moving_price_exports=df.price_exports.mean().over(
+            range=(-ibis.interval(months=2), 0),
+            group_by=df.hs4,
+            order_by=df.date,
+        )
+        )
+        df = df.group_by('hs4').mutate(
+        prev_year_imports=df.moving_price_imports.lag(12),
+        prev_year_exports=df.moving_price_exports.lag(12),
+        )
+        df = df.mutate(
+            pct_change_imports=ibis.case()
+                .when(df.prev_year_imports != 0, 
+                    (df.moving_price_imports - df.prev_year_imports) / df.prev_year_imports)
+                .else_(ibis.null())
+                .end(), 
+            pct_change_exports=ibis.case()
+                .when(df.prev_year_exports != 0, 
+                    (df.moving_price_exports - df.prev_year_exports) / df.prev_year_exports)
+                .else_(ibis.null())
+                .end()
+        )
+        df = df.mutate(
+            moving_import_rank=ibis.case()
+                .when(df.moving_price_imports.notnull(), ibis.dense_rank().over(
+                    order_by=df.moving_price_imports,
+                    group_by=df.date
+                ) + ibis.literal(1))
+                .else_(ibis.null())
+                .end(),
+            moving_export_rank=ibis.case()
+            .when(df.moving_price_exports.notnull(), ibis.dense_rank().over(
+                    order_by=df.moving_price_exports,
+                    group_by=df.date
+                ) + ibis.literal(1))
+            .else_(ibis.null())
+            .end(),
+            pct_imports_rank=ibis.case()
+            .when(df.pct_change_imports.notnull(), ibis.dense_rank().over(
+                    order_by=df.pct_change_imports,
+                    group_by=df.date
+                ) + ibis.literal(1))
+            .else_(ibis.null())
+            .end(),
+            pct_exports_rank=ibis.case()
+            .when(df.pct_change_exports.notnull(), ibis.dense_rank().over(
+                    order_by=df.pct_change_exports,
+                    group_by=df.date
+                ) + ibis.literal(1))
+            .else_(ibis.null())
+            .end(),
+        )
+        return df
 
     def process_cat(self, df:pl.DataFrame, switch:list):
 

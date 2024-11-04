@@ -1,28 +1,33 @@
 services:
   database:
-      image: postgres:latest
-      container_name: database
-      restart: always
-      ports:
-        - ${POSTGRES_PORT}:5432
-      environment:
-        POSTGRES_USER: ${POSTGRES_USER}
-        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-        POSTGRES_DB: ${POSTGRES_DB}
-      volumes:
-        - type: volume
-          source: timescale_volume
-          target: /var/lib/postgresql/data
-          read_only: false
-      networks:
-        - timescale_network
-      healthcheck:
-        test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
-        interval: 5s
-        timeout: 3s
-        retries: 5
+    image: postgres:17
+    container_name: api_database
+    restart: always
+    secrets:
+      - db-password
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db-password
+      POSTGRES_DB: postgres
+    volumes:
+      - database_volume:/var/lib/postgresql/data
+    networks:
+      - api_network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 networks:
-  timescale_network:
+  api_network:
 
 volumes:
-  timescale_volume:
+  database_volume:
+  data_folder:
+
+secrets:
+  db-password:
+    file: password.txt
