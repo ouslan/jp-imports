@@ -32,6 +32,9 @@ df2 = d.process_int_org(time, types)
 df2
 ```
 
+```{python}
+d.process_price()
+```
 
 
 ```{python}
@@ -88,28 +91,28 @@ df = df.mutate(
         .when(df.moving_price_imports.notnull(), ibis.dense_rank().over(
             order_by=df.moving_price_imports,
             group_by=df.date
-        ) + 1)
+        ))
         .else_(ibis.null())
         .end(),
     moving_export_rank=ibis.case()
        .when(df.moving_price_exports.notnull(), ibis.dense_rank().over(
             order_by=df.moving_price_exports,
             group_by=df.date
-        ) + 1)
+        ))
        .else_(ibis.null())
        .end(),
     pct_imports_rank=ibis.case()
        .when(df.pct_change_imports.notnull(), ibis.dense_rank().over(
             order_by=df.pct_change_imports,
             group_by=df.date
-        ) + 1)
+        ))
       .else_(ibis.null())
       .end(),
     pct_exports_rank=ibis.case()
       .when(df.pct_change_exports.notnull(), ibis.dense_rank().over(
             order_by=df.pct_change_exports,
             group_by=df.date
-        ) + 1)
+        ))
      .else_(ibis.null())
      .end(),
 )
