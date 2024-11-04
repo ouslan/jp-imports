@@ -1,5 +1,6 @@
 from .data_pull import DataPull
 import polars as pl
+import numpy as np
 import ibis
 import os
 
@@ -284,87 +285,86 @@ class DataTrade(DataPull):
             case _:
                 raise ValueError(f"Invalid switch: {switch}")
 
-    def process_price(self, agr:bool=False) -> pl.DataFrame:
-        df = pl.from_pandas(self.process_int_org("monthly", "hts", agr).to_pandas())
-        hts = self.conn.table("htstable").to_polars()
-        df = df.join(hts, left_on="hts_id", right_on="id")
-        df = df.with_columns(pl.col("qty_imports", "qty_exports").replace(0, 1))
-        df = df.with_columns(hs4=pl.col("hts_code").str.slice(0, 4))
-
-        df = df.group_by(pl.col("hs4", "month", "year")).agg(
-            pl.col("imports").sum().alias("imports"),
-            pl.col("exports").sum().alias("exports"), 
-            pl.col("qty_imports").sum().alias("qty_imports"), 
-            pl.col("qty_exports").sum().alias("qty_exports")
+    def process_price(self, agr:bool=False) -> ibis.expr.types.relations.Table:
+        df = self.process_int_org("monthly", "hts", agr)
+        hts = self.conn.table("htstable").select("id","hts_code").rename(hts_id="id")
+        df = df.join(hts, "hts_id", how="left")
+        df = df.mutate(
+        date=ibis.date(df.year.cast("string") + "-" + df.month.cast("string") + "-01"),
+        qty_imports=df.qty_imports.substitute(0,1),
+        qty_exports=df.qty_exports.substitute(0,1),
+        hs4=df.hts_code[0:4]
         )
-
-        df = df.with_columns(
-            price_imports=pl.col("imports") / pl.col("qty_imports"),
-            price_exports=pl.col("exports") / pl.col("qty_exports")
+        df = df.group_by(["date","hs4"]).aggregate([
+        df.imports.sum().name("imports"),
+        df.exports.sum().name("exports"),
+        df.qty_imports.sum().name("qty_imports"),
+        df.qty_exports.sum().name("qty_exports")
+        ]
         )
-
-        df = df.with_columns(date=pl.datetime(pl.col("year"), pl.col("month"), 1))
-
-        # Sort the DataFrame by the date column
-        df = df.sort("date")
-
-        # Now you can safely use group_by_dynamic
-        result = df.with_columns(
-            pl.col("price_imports").rolling_mean(window_size=3, min_periods=1).over("hs4").alias("moving_price_imports"),
-            pl.col("price_exports").rolling_mean(window_size=3, min_periods=1).over("hs4").alias("moving_price_exports"), 
-            pl.col("price_imports").rolling_std(window_size=3, min_periods=1).over("hs4").alias("moving_price_imports_std"),
-            pl.col("price_exports").rolling_std(window_size=3, min_periods=1).over("hs4").alias("moving_price_exports_std"), 
+        df = df.mutate(
+        price_imports=df.imports / df.qty_imports,
+        price_exports=df.exports / df.qty_exports,
         )
-        results = result.with_columns(
-            pl.col("moving_price_imports").rank("ordinal").over("date").alias("rank_imports").cast(pl.Int64), 
-            pl.col("moving_price_exports").rank("ordinal").over("date").alias("rank_exports").cast(pl.Int64),
-            upper_band_imports = pl.col("moving_price_imports") + 2 * pl.col("moving_price_imports_std"),
-            lower_band_imports = pl.col("moving_price_imports") - 2 * pl.col("moving_price_imports_std"),
-            upper_band_exports = pl.col("moving_price_exports") + 2 * pl.col("moving_price_exports_std"),
-            lower_band_exports = pl.col("moving_price_exports") - 2 * pl.col("moving_price_exports_std"),
-            )
-        results = df.join(results, on=["date", "hs4"], how="left", validate="1:1")
-
-        # Assuming 'results' already has the necessary columns and is sorted by date and hs4
-        tmp = results.with_columns(
-            pl.col("moving_price_imports").pct_change().over("date", "hs4").alias("pct_change_imports")
-        ).sort(by=["date", "hs4"])
-
-        # To get the percentage change for the same month of the previous year
-        # First, create a column for the previous year's value
-        tmp = tmp.with_columns(
-            pl.when(pl.col("date").dt.year() > 1)  # Ensure there's a previous year to compare
-            .then(pl.col("moving_price_imports").shift(12))  # Shift by 12 months
-            .otherwise(None)
-            .alias("prev_year_imports"), 
+        df = df.mutate(
+        moving_price_imports=df.price_imports.mean().over(
+            range=(-ibis.interval(months=2), 0),
+            group_by=df.hs4,
+            order_by=df.date,
+        ),
+        moving_price_exports=df.price_exports.mean().over(
+            range=(-ibis.interval(months=2), 0),
+            group_by=df.hs4,
+            order_by=df.date,
         )
-        tmp = tmp.with_columns(
-            pl.when(pl.col("date").dt.year() > 1)  # Ensure there's a previous year to compare
-            .then(pl.col("moving_price_exports").shift(12))  # Shift by 12 months
-            .otherwise(None)
-            .alias("prev_year_exports"), 
         )
-        tmp = tmp.with_columns(
-            pl.when(pl.col("date").dt.year() > 1)  # Ensure there's a previous year to compare
-            .then(pl.col("rank_imports").shift(12))  # Shift by 12 months
-            .otherwise(None)
-            .alias("prev_year_rank_imports"), 
+        df = df.group_by('hs4').mutate(
+        prev_year_imports=df.moving_price_imports.lag(12),
+        prev_year_exports=df.moving_price_exports.lag(12),
         )
-        tmp = tmp.with_columns(
-            pl.when(pl.col("date").dt.year() > 1)  # Ensure there's a previous year to compare
-            .then(pl.col("rank_exports").shift(12))  # Shift by 12 months
-            .otherwise(None)
-            .alias("prev_year_rank_exports") 
+        df = df.mutate(
+            pct_change_imports=ibis.case()
+                .when(df.prev_year_imports != 0, 
+                    (df.moving_price_imports - df.prev_year_imports) / df.prev_year_imports)
+                .else_(ibis.null())
+                .end(), 
+            pct_change_exports=ibis.case()
+                .when(df.prev_year_exports != 0, 
+                    (df.moving_price_exports - df.prev_year_exports) / df.prev_year_exports)
+                .else_(ibis.null())
+                .end()
         )
-
-        # Now calculate the percentage change
-        tmp = tmp.with_columns(
-            ((pl.col("moving_price_imports") - pl.col("prev_year_imports")) / pl.col("prev_year_imports")).alias("pct_change_imports_year_over_year"),
-            ((pl.col("moving_price_exports") - pl.col("prev_year_exports")) / pl.col("prev_year_exports")).alias("pct_change_exports_year_over_year"),
-            (pl.col("rank_imports") - pl.col("prev_year_rank_imports")).alias("rank_imports_change_year_over_year"),
-            (pl.col("rank_exports").cast(pl.Int64) - pl.col("prev_year_rank_exports").cast(pl.Int64)).alias("rank_exports_change_year_over_year")
-        ).sort(by=["date", "hs4"])
-        return tmp
+        df = df.mutate(
+            moving_import_rank=ibis.case()
+                .when(df.moving_price_imports.notnull(), ibis.dense_rank().over(
+                    order_by=df.moving_price_imports,
+                    group_by=df.date
+                ))
+                .else_(ibis.null())
+                .end(),
+            moving_export_rank=ibis.case()
+            .when(df.moving_price_exports.notnull(), ibis.dense_rank().over(
+                    order_by=df.moving_price_exports,
+                    group_by=df.date
+                ))
+            .else_(ibis.null())
+            .end(),
+            pct_imports_rank=ibis.case()
+            .when(df.pct_change_imports.notnull(), ibis.dense_rank().over(
+                    order_by=df.pct_change_imports,
+                    group_by=df.date
+                ))
+            .else_(ibis.null())
+            .end(),
+            pct_exports_rank=ibis.case()
+            .when(df.pct_change_exports.notnull(), ibis.dense_rank().over(
+                    order_by=df.pct_change_exports,
+                    group_by=df.date
+                ))
+            .else_(ibis.null())
+            .end(),
+        )
+        return df
 
     def process_cat(self, df:pl.DataFrame, switch:list):
 
