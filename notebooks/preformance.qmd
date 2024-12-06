@@ -15,7 +15,9 @@ os.chdir("..")
 from src.jp_imports.data_process import DataTrade
 from src.jp_imports.data_pull import DataPull
 from datetime import datetime
+import requests
 import polars as pl
+import pandas as pd
 import ibis
 
 ibis.options.interactive = True
@@ -26,11 +28,12 @@ dt = DataTrade(database_url="postgresql://postgres:password@localhost:5432/postg
 ```{python}
 time = "monthly"
 types = "hts"
-df = dt.process_int_jp(agg=time, types=types, time="2012-05-01+2018-05-01")
-df.filter(df.year == 2015)
+df = dt.process_price()
+df = df.filter(df.date == "2024-08-01")
+df.count()
 ```
 
 ```{python}
-dt.conn.table("inttradedata").date.max().execute()
-
+r = requests.get("http://localhost:8051/data/trade/moving/?agr=false")
+pd.DataFrame(r.json())
 ```

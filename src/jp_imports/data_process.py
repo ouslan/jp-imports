@@ -1,6 +1,6 @@
 from .data_pull import DataPull
+from dateutil.relativedelta import relativedelta
 import polars as pl
-import numpy as np
 import ibis
 import os
 
@@ -319,8 +319,8 @@ class DataTrade(DataPull):
 
     def process_price(self, agr:bool=False) -> ibis.expr.types.relations.Table:
         max_date = self.conn.table("inttradedata").date.max().execute()
-
-        df = self.process_int_org(agg="monthly", types="hts", agr=agr, time=f"{(max_date.year)-1}-{max_date.month}-01+{max_date.year}-{max_date.month}-01")
+        start_date = max_date - relativedelta(years=1, months=1)
+        df = self.process_int_org(agg="monthly", types="hts", agr=agr, time=f"{start_date}+{max_date}")
         hts = self.conn.table("htstable").select("id","hts_code").rename(hts_id="id")
         df = df.join(hts, "hts_id", how="left")
         df = df.mutate(
