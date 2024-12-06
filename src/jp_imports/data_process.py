@@ -34,8 +34,9 @@ class DataTrade(DataPull):
         super().__init__(database_url=database_url, saving_dir=self.saving_dir, debug=self.debug, dev=self.dev)
 
     def process_int_jp(self,
-                       time:str,
                        types:str,
+                       agg:str,
+                       time:str="",
                        agr:bool=False,
                        group:bool=False,
                        update:bool=False) -> ibis.expr.types.relations.Table:
@@ -58,13 +59,26 @@ class DataTrade(DataPull):
         pl.LazyFrame
             Processed data. Requires df.collect() to view the data.
         """
-        switch = [time, types]
+        switch = [agg, types]
 
         if "jptradedata" not in self.conn.list_tables() or update:
             self.insert_int_jp(self.jp_data, self.agr_file)
         if int(self.conn.table("jptradedata").count().execute()) == 0:
             self.insert_int_jp(self.jp_data, self.agr_file)
-        df = self.conn.table("jptradedata")
+        if time == "":
+            df = self.conn.table("jptradedata")
+        elif len(time.split("+")) == 2:
+            times = time.split("+")
+            start = times[0]
+            end = times[1]
+            df = self.conn.table("jptradedata")
+            df = df.filter((self.conn.table("jptradedata").date >= start) & (self.conn.table("jptradedata").date <= end))
+        elif len(time.split("+")) == 1:
+            df = self.conn.table("jptradedata")
+            df = df.filter(self.conn.table("jptradedata").date == time)
+        else:
+            raise ValueError('Invalid time format. Use "date" or "start_date+end_date"')
+
         units = self.conn.table("unittable")
 
         if agr:

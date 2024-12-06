@@ -26,10 +26,11 @@ dt = DataTrade(database_url="postgresql://postgres:password@localhost:5432/postg
 ```{python}
 time = "monthly"
 types = "hts"
-dt.process_price(agg="monthly", types="hts", time="2012-02-01")
+df = dt.process_int_jp(agg=time, types=types, time="2012-05-01+2018-05-01")
+df.filter(df.year == 2015)
 ```
 
 ```{python}
-dt.conn.table("inttradedata")
+dt.conn.table("inttradedata").date.max().execute()
 
 ```
