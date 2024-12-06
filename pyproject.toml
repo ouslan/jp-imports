@@ -1,46 +1,18 @@
-[build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "jp_imports"
-version = "1.0"
-dependencies = [
-    "numpy~=2.0.1",
-    "pandas~=2.2.2",
-    "pyarrow~=17.0.0",
-    "python-dateutil~=2.9.0.post0",
-    "pytz~=2024.1",
-    "six~=1.16.0",
-    "tzdata~=2024.1",
-    "python-dotenv~=1.0.1",
-    "tqdm~=4.66.5"
-]
-requires-python = ">=3.8"
-authors = [
-  {name = "Alejandro Ouslan", email = "alejandro.ouslan@upr.edu"},
-]
-maintainers = []
-description = "Import/export data processing for Puerto Rico JP"
+name = "jp-imports"
+version = "0.1.0"
+authors = [{ name = "Alejandro Ousland", email = "alejandro.ouslan@upr.edu" }]
+description = "Add your description here"
 readme = "README.md"
-license = {file = "LICENSE"}
-keywords = []
-classifiers = [
-  "Development Status :: 4 - Beta",
-  "Programming Language :: Python"
+requires-python = ">=3.12"
+dependencies = [
+  "ibis-framework[sqlite]>=9.5.0",
+  "jupyter>=1.1.1",
+  "pandas>=2.2.3",
+  "polars>=1.16.0",
+  "psycopg2-binary>=2.9.10",
+  "pytest>=8.3.4",
+  "requests>=2.32.3",
+  "sqlmodel>=0.0.22",
+  "tqdm>=4.67.1",
 ]
-
-[project.optional-dependencies]
-
-[project.urls]
-Repository = "https://github.com/ouslan/jp-imports"
-
-[project.scripts]
-
-[project.gui-scripts]
-
-[tool.setuptools.packages.find]
-where = ["src"] # <-- this changed
-
-[tool.setuptools.package-data]
-"*" = ["*.*"] # <-- this changed

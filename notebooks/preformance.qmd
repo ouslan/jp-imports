@@ -1,0 +1,35 @@
+---
+title: "Agriculture processing"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+```{python}
+import os
+os.chdir("..")
+```
+
+```{python}
+from src.jp_imports.data_process import DataTrade
+from src.jp_imports.data_pull import DataPull
+from datetime import datetime
+import polars as pl
+import ibis
+
+ibis.options.interactive = True
+
+dt = DataTrade(database_url="postgresql://postgres:password@localhost:5432/postgres", debug=True)
+```
+
+```{python}
+time = "monthly"
+types = "hts"
+dt.process_price(agg="monthly", types="hts", time="2012-02-01")
+```
+
+```{python}
+dt.conn.table("inttradedata")
+
+```
