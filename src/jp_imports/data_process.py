@@ -80,13 +80,7 @@ class DataTrade(DataPull):
         else:
             return self.process_data(switch=switch, df=df)
 
-    def process_int_org(self,
-                        types:str,
-                        agg:str,
-                        time:str="",
-                        agr:bool=False,
-                        group:bool=False,
-                        update:bool=False) -> ibis.expr.types.relations.Table:
+    def process_int_org(self, time:str, types:str, agr:bool=False, group:bool=False, update:bool=False) -> ibis.expr.types.relations.Table:
         """
         Process the data from Puerto Rico Statistics Institute.
 
@@ -106,7 +100,7 @@ class DataTrade(DataPull):
         pl.LazyFrame
             Processed data. Requires df.collect() to view the data.
         """
-        switch = [agg, types]
+        switch = [time, types]
 
         if types == "naics":
             raise ValueError("NAICS data is not available for Puerto Rico Statistics Institute.")
@@ -114,20 +108,8 @@ class DataTrade(DataPull):
             self.insert_int_org(self.org_data)
         if int(self.conn.table("inttradedata").count().execute()) == 0:
             self.insert_int_org(self.org_data)
-        if time == "":
-            df = self.conn.table("inttradedata")
-        elif len(time.split("+")) == 2:
-            times = time.split("+")
-            start = times[0]
-            end = times[1]
-            df = self.conn.table("inttradedata")
-            df = df.filter((self.conn.table("inttradedata").date >= start) & (self.conn.table("inttradedata").date <= end))
-        elif len(time.split("+")) == 1:
-            df = self.conn.table("inttradedata")
-            df = df.filter(self.conn.table("inttradedata").date == time)
-        else:
-            raise ValueError('Invalid time format. Use "date" or "start_date+end_date"')
 
+        df = self.conn.table("inttradedata")
         units = self.conn.table("unittable")
 
         if agr:
@@ -304,40 +286,41 @@ class DataTrade(DataPull):
                 raise ValueError(f"Invalid switch: {switch}")
 
     def process_price(self, agr:bool=False) -> ibis.expr.types.relations.Table:
-        max_date = self.conn.table("inttradedata").date.max().execute()
-
-        df = self.process_int_org(agg="monthly", types="hts", agr=agr, time=f"{(max_date.year)-1}-{max_date.month}-01+{max_date.year}-{max_date.month}-01")
+        df = self.process_int_org("monthly", "hts", agr)
         hts = self.conn.table("htstable").select("id","hts_code").rename(hts_id="id")
         df = df.join(hts, "hts_id", how="left")
         df = df.mutate(
-            date=ibis.date(df.year.cast("string") + "-" + df.month.cast("string") + "-01"),
-            qty_imports=df.qty_imports.substitute(0,1),
-            qty_exports=df.qty_exports.substitute(0,1),
-            hs4=df.hts_code[0:4])
+        date=ibis.date(df.year.cast("string") + "-" + df.month.cast("string") + "-01"),
+        qty_imports=df.qty_imports.substitute(0,1),
+        qty_exports=df.qty_exports.substitute(0,1),
+        hs4=df.hts_code[0:4]
+        )
         df = df.group_by(["date","hs4"]).aggregate([
-            df.imports.sum().name("imports"),
-            df.exports.sum().name("exports"),
-            df.qty_imports.sum().name("qty_imports"),
-            df.qty_exports.sum().name("qty_exports")
-            ])
-        df = df.mutate(
-            price_imports=df.imports / df.qty_imports,
-            price_exports=df.exports / df.qty_exports,
+        df.imports.sum().name("imports"),
+        df.exports.sum().name("exports"),
+        df.qty_imports.sum().name("qty_imports"),
+        df.qty_exports.sum().name("qty_exports")
+        ]
         )
         df = df.mutate(
-            moving_price_imports=df.price_imports.mean().over(
-                range=(-ibis.interval(months=2), 0),
-                group_by=df.hs4,
-                order_by=df.date,
-            ),
-            moving_price_exports=df.price_exports.mean().over(
-                range=(-ibis.interval(months=2), 0),
-                group_by=df.hs4,
-                order_by=df.date,
-        ))
+        price_imports=df.imports / df.qty_imports,
+        price_exports=df.exports / df.qty_exports,
+        )
+        df = df.mutate(
+        moving_price_imports=df.price_imports.mean().over(
+            range=(-ibis.interval(months=2), 0),
+            group_by=df.hs4,
+            order_by=df.date,
+        ),
+        moving_price_exports=df.price_exports.mean().over(
+            range=(-ibis.interval(months=2), 0),
+            group_by=df.hs4,
+            order_by=df.date,
+        )
+        )
         df = df.group_by('hs4').mutate(
-            prev_year_imports=df.moving_price_imports.lag(12),
-            prev_year_exports=df.moving_price_exports.lag(12),
+        prev_year_imports=df.moving_price_imports.lag(12),
+        prev_year_exports=df.moving_price_exports.lag(12),
         )
         df = df.mutate(
             pct_change_imports=ibis.case()
@@ -379,7 +362,8 @@ class DataTrade(DataPull):
                     group_by=df.date
                 ))
             .else_(ibis.null())
-            .end())
+            .end(),
+        )
         return df
 
     def process_cat(self, df:pl.DataFrame, switch:list):
