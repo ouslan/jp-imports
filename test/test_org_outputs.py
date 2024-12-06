@@ -32,7 +32,7 @@ def setup_database():
 ])
 def test_org_results(setup_database, time, types, ag):
     d = setup_database  # Access the DataTrade instance from the fixture
-    df1 = d.process_int_org(time, types, ag).to_polars()
+    df1 = d.process_int_org(agg=time, types=types, agr=ag).to_polars()
     df2 = pl.read_parquet(f"test/test_outputs/org_results_{time}_{types}_{ag}.parquet")
 
     assert_frame_equal(df1, df2, check_dtypes=False)
