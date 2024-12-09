@@ -39,7 +39,8 @@ class DataTrade(DataPull):
                        time:str="",
                        agr:bool=False,
                        group:bool=False,
-                       update:bool=False) -> ibis.expr.types.relations.Table:
+                       update:bool=False,
+                       filter:str="") -> ibis.expr.types.relations.Table:
         """
         Process the data for Puerto Rico Statistics Institute provided to JP.
 
@@ -88,6 +89,15 @@ class DataTrade(DataPull):
 
         df = self.conversion(df, units)
 
+        if filter != "":
+            if types == "hs":
+                df = df.filter(df.hts_code == filter)
+            elif types == "naics":
+                df = df.filter(df.naics_code == filter)
+            elif types == "country":
+                df = df.filter(df.country_name == filter)
+
+
         if group:
             #return self.process_cat(switch=switch)
             raise NotImplementedError("Grouping not implemented yet")
@@ -100,7 +110,8 @@ class DataTrade(DataPull):
                         time:str="",
                         agr:bool=False,
                         group:bool=False,
-                        update:bool=False) -> ibis.expr.types.relations.Table:
+                        update:bool=False,
+                        filter:str="") -> ibis.expr.types.relations.Table:
         """
         Process the data from Puerto Rico Statistics Institute.
 
@@ -150,6 +161,14 @@ class DataTrade(DataPull):
             df = df.filter(df.agri_prod)
 
         df = self.conversion(df, units)
+
+        if filter != "":
+            if types == "hs":
+                df = df.filter(df.hts_code == filter)
+            elif types == "naics":
+                df = df.filter(df.naics_code == filter)
+            elif types == "country":
+                df = df.filter(df.country_name == filter)
 
         if group:
             #return self.process_cat(switch=switch)
