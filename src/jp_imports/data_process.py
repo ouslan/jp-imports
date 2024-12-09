@@ -28,7 +28,7 @@ class DataTrade(DataPull):
         self.saving_dir = saving_dir
         self.debug = debug
         self.dev = dev
-        self.jp_data = os.path.join(self.saving_dir, "raw/jp_data.parquet") 
+        self.jp_data = os.path.join(self.saving_dir, "raw/jp_data.parquet")
         self.org_data = os.path.join(self.saving_dir, "raw/org_data.parquet")
         self.agr_file = os.path.join(self.saving_dir, "external/code_agr.json")
         super().__init__(database_url=database_url, saving_dir=self.saving_dir, debug=self.debug, dev=self.dev)
@@ -80,23 +80,31 @@ class DataTrade(DataPull):
         else:
             raise ValueError('Invalid time format. Use "date" or "start_date+end_date"')
 
-        units = self.conn.table("unittable")
-
         if agr:
             hts = self.conn.table("htstable").select("id", "agri_prod").rename(agr_id="id")
             df = df.join(hts, df.hts_id == hts.agr_id)
             df = df.filter(df.agri_prod)
 
-        df = self.conversion(df, units)
 
         if filter != "":
-            if types == "hs":
+            if types == "hts":
+                if filter not in self.conn.table("htstable").hts_code.unique().to_list():
+                    raise ValueError(f"Invalid HS code: {filter}")
+                ids = self.conn.table("htstable").select("id").filter(self.conn.table("htstable").hts_code == filter)
                 df = df.filter(df.hts_code == filter)
             elif types == "naics":
-                df = df.filter(df.naics_code == filter)
+                if filter not in self.conn.table("jptradedata").naics_code.unique().to_list():
+                    raise ValueError(f"Invalid NAICS code: {filter}")
+                ids = self.conn.table("naicstable").select("id").filter(self.conn.table("naicstable").naics_code == filter)
+                df = df.filter(df.naics_code == ids)
             elif types == "country":
-                df = df.filter(df.country_name == filter)
+                if filter not in self.conn.table("jptradedata").country_name.unique().to_list():
+                    raise ValueError(f"Invalid country: {filter}")
+                ids = self.conn.table("countrytable").select("id").filter(self.conn.table("countrytable").country_name == filter)
+                df = df.filter(df.country_name == ids)
 
+        units = self.conn.table("unittable")
+        df = self.conversion(df, units)
 
         if group:
             #return self.process_cat(switch=switch)
@@ -153,22 +161,27 @@ class DataTrade(DataPull):
         else:
             raise ValueError('Invalid time format. Use "date" or "start_date+end_date"')
 
-        units = self.conn.table("unittable")
-
         if agr:
             hts = self.conn.table("htstable").select("id", "agri_prod").rename(agr_id="id")
             df = df.join(hts, df.hts_id == hts.agr_id)
             df = df.filter(df.agri_prod)
 
-        df = self.conversion(df, units)
-
         if filter != "":
-            if types == "hs":
+            if types == "hts":
+                if filter not in df.hts_code.unique().to_list():
+                    raise ValueError(f"Invalid HS code: {filter}")
                 df = df.filter(df.hts_code == filter)
             elif types == "naics":
+                if filter not in df.naics_code.unique().to_list():
+                    raise ValueError(f"Invalid NAICS code: {filter}")
                 df = df.filter(df.naics_code == filter)
             elif types == "country":
+                if filter not in df.country_name.unique().to_list():
+                    raise ValueError(f"Invalid country: {filter}")
                 df = df.filter(df.country_name == filter)
+
+        units = self.conn.table("unittable")
+        df = self.conversion(df, units)
 
         if group:
             #return self.process_cat(switch=switch)
@@ -336,10 +349,10 @@ class DataTrade(DataPull):
             case _:
                 raise ValueError(f"Invalid switch: {switch}")
 
-    def process_price(self, agr:bool=False) -> ibis.expr.types.relations.Table:
+    def process_price(self, agr:bool=False, filter:str="") -> ibis.expr.types.relations.Table:
         max_date = self.conn.table("inttradedata").date.max().execute()
         start_date = max_date - relativedelta(years=1, months=1)
-        df = self.process_int_org(agg="monthly", types="hts", agr=agr, time=f"{start_date}+{max_date}")
+        df = self.process_int_org(agg="monthly", types="hts", agr=agr, filter=filter, time=f"{start_date}+{max_date}")
         hts = self.conn.table("htstable").select("id","hts_code").rename(hts_id="id")
         df = df.join(hts, "hts_id", how="left")
         df = df.mutate(

@@ -19,12 +19,15 @@ ibis.options.interactive = True
 ```
 
 ```{python}
-d = DataTrade(database_url="postgresql://postgres:password@localhost:5433/timescaledb", debug=True)
-df = d.conn.table("jptradedata")
-units = d.conn.table("unittable")
-df = df.join(units, df.unit1_id == units.id).rename(unit_1="unit_code")
-df = df.mutate(unit2_id=df.unit2_id.fill_null(df.unit1_id))
-df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code")
+d = DataTrade(debug=True)
+```
+
+
+```{python}
+time = "monthly"
+types = "naics"
+df2 = d.process_int_jp(agg=time, types=types,filter="0101100000")
+df2
 ```
 
 ```{python}
