@@ -85,23 +85,32 @@ class DataTrade(DataPull):
             df = df.join(hts, df.hts_id == hts.agr_id)
             df = df.filter(df.agri_prod)
 
+        if types == "hts":
+            hts_table = self.conn.table("htstable")
+            df_hts = hts_table[hts_table["hts_code"].like(f"{filter}%")]
+            print(df_hts)
+            if df_hts.execute().empty: 
+                raise ValueError(f"Invalid HTS code: {filter}")
+            hts_ids = df_hts["id"]
 
-        if filter != "":
-            if types == "hts":
-                if filter not in self.conn.table("htstable").hts_code.unique().to_list():
-                    raise ValueError(f"Invalid HS code: {filter}")
-                ids = self.conn.table("htstable").select("id").filter(self.conn.table("htstable").hts_code == filter)
-                df = df.filter(df.hts_code == filter)
-            elif types == "naics":
-                if filter not in self.conn.table("jptradedata").naics_code.unique().to_list():
-                    raise ValueError(f"Invalid NAICS code: {filter}")
-                ids = self.conn.table("naicstable").select("id").filter(self.conn.table("naicstable").naics_code == filter)
-                df = df.filter(df.naics_code == ids)
-            elif types == "country":
-                if filter not in self.conn.table("jptradedata").country_name.unique().to_list():
-                    raise ValueError(f"Invalid country: {filter}")
-                ids = self.conn.table("countrytable").select("id").filter(self.conn.table("countrytable").country_name == filter)
-                df = df.filter(df.country_name == ids)
+            df = df[df["hts_id"].isin(hts_ids)]
+        elif types == "naics":
+            naics_table = self.conn.table("naicstable")
+            print(naics_table)
+            df_naics = naics_table[naics_table["naics_code"].like(f"{filter}%")]
+            if df_naics.execute().empty: 
+                raise ValueError(f"Invalid NAICS code: {filter}")
+            naics_ids = df_naics["id"]
+
+            df = df[df["naics_id"].isin(naics_ids)]
+        elif types == "country":
+            country_table = self.conn.table("countrytable")
+            df_country = country_table[country_table["cty_code"].like(f"{filter}%")]
+            if df_country.execute().empty: 
+                raise ValueError(f"Invalid Country code: {filter}")
+            country_ids = df_country["id"]
+
+            df = df[df["country_id"].isin(country_ids)]
 
         units = self.conn.table("unittable")
         df = self.conversion(df, units)
@@ -166,19 +175,23 @@ class DataTrade(DataPull):
             df = df.join(hts, df.hts_id == hts.agr_id)
             df = df.filter(df.agri_prod)
 
-        if filter != "":
-            if types == "hts":
-                if filter not in df.hts_code.unique().to_list():
-                    raise ValueError(f"Invalid HS code: {filter}")
-                df = df.filter(df.hts_code == filter)
-            elif types == "naics":
-                if filter not in df.naics_code.unique().to_list():
-                    raise ValueError(f"Invalid NAICS code: {filter}")
-                df = df.filter(df.naics_code == filter)
-            elif types == "country":
-                if filter not in df.country_name.unique().to_list():
-                    raise ValueError(f"Invalid country: {filter}")
-                df = df.filter(df.country_name == filter)
+        if types == "hts":
+            hts_table = self.conn.table("htstable")
+            df_hts = hts_table[hts_table["hts_code"].like(f"{filter}%")]
+            print(df_hts)
+            if df_hts.execute().empty: 
+                raise ValueError(f"Invalid HTS code: {filter}")
+            hts_ids = df_hts["id"]
+
+            df = df[df["hts_id"].isin(hts_ids)]
+        elif types == "country":
+            country_table = self.conn.table("countrytable")
+            df_country = country_table[country_table["cty_code"].like(f"{filter}%")]
+            if df_country.execute().empty: 
+                raise ValueError(f"Invalid Country code: {filter}")
+            country_ids = df_country["id"]
+
+            df = df[df["country_id"].isin(country_ids)]
 
         units = self.conn.table("unittable")
         df = self.conversion(df, units)
