@@ -1,4 +1,4 @@
-from src.jp_imports.data_process import DataProcess
+from src.jp_imports.data_process import DataTrade
 from src.jp_imports.data_pull import DataPull
 from dotenv import load_dotenv
 import os
