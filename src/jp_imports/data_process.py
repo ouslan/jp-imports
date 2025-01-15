@@ -103,7 +103,7 @@ class DataTrade(DataPull):
             df = df[df["naics_id"].isin(naics_ids)]
         elif types == "country":
             country_table = self.conn.table("countrytable")
-            df_country = country_table[country_table["cty_code"].like(f"{filter}%")]
+            df_country = country_table.filter(country_table.cty_code.startswith(filter))
             if df_country.execute().empty: 
                 raise ValueError(f"Invalid Country code: {filter}")
             country_ids = df_country["id"]
