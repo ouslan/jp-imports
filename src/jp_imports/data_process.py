@@ -88,7 +88,6 @@ class DataTrade(DataPull):
         if types == "hts":
             hts_table = self.conn.table("htstable")
             df_hts = hts_table[hts_table["hts_code"].like(f"{filter}%")]
-            print(df_hts)
             if df_hts.execute().empty: 
                 raise ValueError(f"Invalid HTS code: {filter}")
             hts_ids = df_hts["id"]
@@ -96,9 +95,8 @@ class DataTrade(DataPull):
             df = df[df["hts_id"].isin(hts_ids)]
         elif types == "naics":
             naics_table = self.conn.table("naicstable")
-            print(naics_table)
-            df_naics = naics_table[naics_table["naics_code"].like(f"{filter}%")]
-            if df_naics.execute().empty: 
+            df_naics = naics_table.filter(naics_table.naics_code.startswith(filter))
+            if df_naics.execute().empty:
                 raise ValueError(f"Invalid NAICS code: {filter}")
             naics_ids = df_naics["id"]
 
@@ -178,7 +176,6 @@ class DataTrade(DataPull):
         if types == "hts":
             hts_table = self.conn.table("htstable")
             df_hts = hts_table[hts_table["hts_code"].like(f"{filter}%")]
-            print(df_hts)
             if df_hts.execute().empty: 
                 raise ValueError(f"Invalid HTS code: {filter}")
             hts_ids = df_hts["id"]
