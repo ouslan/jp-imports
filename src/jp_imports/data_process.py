@@ -175,7 +175,7 @@ class DataTrade(DataPull):
 
         if types == "hts":
             hts_table = self.conn.table("htstable")
-            df_hts = hts_table[hts_table["hts_code"].like(f"{filter}%")]
+            df_hts = hts_table.filter(hts_table.hts_code.startswith(filter))
             if df_hts.execute().empty: 
                 raise ValueError(f"Invalid HTS code: {filter}")
             hts_ids = df_hts["id"]
