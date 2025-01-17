@@ -92,7 +92,7 @@ class DataTrade(DataPull):
                 raise ValueError(f"Invalid HTS code: {filter}")
             hts_ids = df_hts["id"]
 
-            df = df[df["hts_id"].isin(hts_ids)]
+            df = df.filter(df["hts_id"].isin(hts_ids))
         elif types == "naics":
             naics_table = self.conn.table("naicstable")
             df_naics = naics_table.filter(naics_table.naics_code.startswith(filter))
@@ -100,7 +100,7 @@ class DataTrade(DataPull):
                 raise ValueError(f"Invalid NAICS code: {filter}")
             naics_ids = df_naics["id"]
 
-            df = df[df["naics_id"].isin(naics_ids)]
+            df = df.filter(df["naics_id"].isin(naics_ids))
         elif types == "country":
             country_table = self.conn.table("countrytable")
             df_country = country_table.filter(country_table.cty_code.startswith(filter))
@@ -108,7 +108,7 @@ class DataTrade(DataPull):
                 raise ValueError(f"Invalid Country code: {filter}")
             country_ids = df_country["id"]
 
-            df = df[df["country_id"].isin(country_ids)]
+            df = df.filter(df["country_id"].isin(country_ids))
 
         units = self.conn.table("unittable")
         df = self.conversion(df, units)
@@ -180,7 +180,7 @@ class DataTrade(DataPull):
                 raise ValueError(f"Invalid HTS code: {filter}")
             hts_ids = df_hts["id"]
 
-            df = df[df["hts_id"].isin(hts_ids)]
+            df = df.filter(df["hts_id"].isin(hts_ids))
         elif types == "country":
             country_table = self.conn.table("countrytable")
             df_country = country_table.filter(country_table.cty_code.startswith(filter))
