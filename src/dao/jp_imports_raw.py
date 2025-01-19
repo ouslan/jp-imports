@@ -2,7 +2,6 @@ from sqlmodel import Field, Session, SQLModel
 from sqlalchemy import BigInteger, Column
 from datetime import datetime
 from typing import Optional
-import ibis
 
 class JPTradeData(SQLModel, table=True):
     id: int = Field(primary_key=True)
@@ -81,7 +80,3 @@ def create_trade(engine):
     with Session(engine) as session:
         session.add_all([imports, exports])
         session.commit()
-
-def select_all_jp_trade_data(db_url):
-    con = ibis.connect(db_url)
-    return con.table("jp_trade_data").to_polars()
