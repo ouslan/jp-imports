@@ -28,7 +28,7 @@ class DataTrade(DataPull):
         self.saving_dir = saving_dir
         self.debug = debug
         self.dev = dev
-        self.jp_data = os.path.join(self.saving_dir, "raw/jp_data.parquet") 
+        self.jp_data = os.path.join(self.saving_dir, "raw/jp_data.parquet")
         self.org_data = os.path.join(self.saving_dir, "raw/org_data.parquet")
         self.agr_file = os.path.join(self.saving_dir, "external/code_agr.json")
         super().__init__(database_url=database_url, saving_dir=self.saving_dir, debug=self.debug, dev=self.dev)
@@ -39,7 +39,8 @@ class DataTrade(DataPull):
                        time:str="",
                        agr:bool=False,
                        group:bool=False,
-                       update:bool=False) -> ibis.expr.types.relations.Table:
+                       update:bool=False,
+                       filter:str="") -> ibis.expr.types.relations.Table:
         """
         Process the data for Puerto Rico Statistics Institute provided to JP.
 
@@ -79,13 +80,37 @@ class DataTrade(DataPull):
         else:
             raise ValueError('Invalid time format. Use "date" or "start_date+end_date"')
 
-        units = self.conn.table("unittable")
-
         if agr:
             hts = self.conn.table("htstable").select("id", "agri_prod").rename(agr_id="id")
             df = df.join(hts, df.hts_id == hts.agr_id)
             df = df.filter(df.agri_prod)
 
+        if types == "hts":
+            hts_table = self.conn.table("htstable")
+            df_hts = hts_table.filter(hts_table.hts_code.startswith(filter))
+            if df_hts.execute().empty: 
+                raise ValueError(f"Invalid HTS code: {filter}")
+            hts_ids = df_hts["id"]
+
+            df = df.filter(df["hts_id"].isin(hts_ids))
+        elif types == "naics":
+            naics_table = self.conn.table("naicstable")
+            df_naics = naics_table.filter(naics_table.naics_code.startswith(filter))
+            if df_naics.execute().empty:
+                raise ValueError(f"Invalid NAICS code: {filter}")
+            naics_ids = df_naics["id"]
+
+            df = df.filter(df["naics_id"].isin(naics_ids))
+        elif types == "country":
+            country_table = self.conn.table("countrytable")
+            df_country = country_table.filter(country_table.cty_code.startswith(filter))
+            if df_country.execute().empty: 
+                raise ValueError(f"Invalid Country code: {filter}")
+            country_ids = df_country["id"]
+
+            df = df.filter(df["country_id"].isin(country_ids))
+
+        units = self.conn.table("unittable")
         df = self.conversion(df, units)
 
         if group:
@@ -100,7 +125,8 @@ class DataTrade(DataPull):
                         time:str="",
                         agr:bool=False,
                         group:bool=False,
-                        update:bool=False) -> ibis.expr.types.relations.Table:
+                        update:bool=False,
+                        filter:str="") -> ibis.expr.types.relations.Table:
         """
         Process the data from Puerto Rico Statistics Institute.
 
@@ -142,13 +168,29 @@ class DataTrade(DataPull):
         else:
             raise ValueError('Invalid time format. Use "date" or "start_date+end_date"')
 
-        units = self.conn.table("unittable")
-
         if agr:
             hts = self.conn.table("htstable").select("id", "agri_prod").rename(agr_id="id")
             df = df.join(hts, df.hts_id == hts.agr_id)
             df = df.filter(df.agri_prod)
 
+        if types == "hts":
+            hts_table = self.conn.table("htstable")
+            df_hts = hts_table.filter(hts_table.hts_code.startswith(filter))
+            if df_hts.execute().empty: 
+                raise ValueError(f"Invalid HTS code: {filter}")
+            hts_ids = df_hts["id"]
+
+            df = df.filter(df["hts_id"].isin(hts_ids))
+        elif types == "country":
+            country_table = self.conn.table("countrytable")
+            df_country = country_table.filter(country_table.cty_code.startswith(filter))
+            if df_country.execute().empty: 
+                raise ValueError(f"Invalid Country code: {filter}")
+            country_ids = df_country["id"]
+
+            df = df[df["country_id"].isin(country_ids)]
+
+        units = self.conn.table("unittable")
         df = self.conversion(df, units)
 
         if group:
@@ -317,10 +359,10 @@ class DataTrade(DataPull):
             case _:
                 raise ValueError(f"Invalid switch: {switch}")
 
-    def process_price(self, agr:bool=False) -> ibis.expr.types.relations.Table:
+    def process_price(self, agr:bool=False, filter:str="") -> ibis.expr.types.relations.Table:
         max_date = self.conn.table("inttradedata").date.max().execute()
         start_date = max_date - relativedelta(years=1, months=1)
-        df = self.process_int_org(agg="monthly", types="hts", agr=agr, time=f"{start_date}+{max_date}")
+        df = self.process_int_org(agg="monthly", types="hts", agr=agr, filter=filter, time=f"{start_date}+{max_date}")
         hts = self.conn.table("htstable").select("id","hts_code").rename(hts_id="id")
         df = df.join(hts, "hts_id", how="left")
         df = df.mutate(
