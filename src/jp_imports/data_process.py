@@ -118,6 +118,7 @@ class DataTrade(DataPull):
             raise NotImplementedError("Grouping not implemented yet")
         else:
             return self.process_data(switch=switch, df=df)
+      
 
     def process_int_org(self,
                         types:str,
@@ -134,12 +135,19 @@ class DataTrade(DataPull):
         ----------
         time: str
             Time period to process the data. The options are "yearly", "qrt", and "monthly".
+            ex. "2020-01-01+2021-01-01" - for yearly data
+                "2020-01-01+2020-03-01" - for quarterly data
+                "2020-01-01" - for monthly data
         types: str
-            Type of data to process. The options are "total", "naics", "hs", and "country".
+            The type of data to process. The options are "total", "hts", and "country".
+        agg: str
+            Aggregation of the data. The options are "monthly", "yearly", "fiscal", "total" and "qtr".
         group: bool
             Group the data by the classification. (Not implemented yet)
         update: bool
             Update the data from the source.
+        filter: str
+            Filter the data based on the type. ex. "NAICS code" or "HTS code". 
 
         Returns
         -------
