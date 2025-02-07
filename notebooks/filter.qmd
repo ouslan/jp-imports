@@ -24,8 +24,13 @@ d = DataTrade(debug=True)
 
 
 ```{python}
-time = "monthly"
+time = 2020
 types = "naics"
-df2 = d.process_int_jp(agg=time, types=types,filter="1")
-df2
+df = d.conn.table("jptradedata")
+start = ""
+df = df.filter(
+                (df.date >= start)
+                & (df.date <= end)
+)
+df.filter(df.date.year() == 2009)
 ```
