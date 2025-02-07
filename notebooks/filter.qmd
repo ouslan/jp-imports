@@ -15,6 +15,7 @@ os.chdir("..")
 from src.jp_imports.data_process import DataTrade
 import polars as pl
 import ibis
+import pandas as pd
 ibis.options.interactive = True
 ```
 
@@ -33,4 +34,10 @@ df = df.filter(
                 & (df.date <= end)
 )
 df.filter(df.date.year() == 2009)
+```
+
+```{python}
+url = f"{API_URL}/data/index/jp_index?update=false"
+    df_monthly = pd.DataFrame(requests.get(url).json())
+
 ```
