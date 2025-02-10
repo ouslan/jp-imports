@@ -1,5 +1,4 @@
 from src.jp_imports.data_process import DataTrade
-import os
 
 
 def main() -> None:

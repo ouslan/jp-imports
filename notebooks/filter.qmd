@@ -13,8 +13,10 @@ os.chdir("..")
 
 ```{python}
 from src.jp_imports.data_process import DataTrade
+from src.jp_imports.models import *
 import polars as pl
 import ibis
+import requests
 import pandas as pd
 ibis.options.interactive = True
 ```
@@ -37,7 +39,12 @@ df.filter(df.date.year() == 2009)
 ```
 
 ```{python}
-url = f"{API_URL}/data/index/jp_index?update=false"
-    df_monthly = pd.DataFrame(requests.get(url).json())
-
+db_path = "data.duckdb"
+init_district_table(db_path)
+init_country_table(db_path)
+init_hts_table(db_path)
+init_sitc_table(db_path)
+init_naics_table(db_path)
+init_unit_table(db_path)
+init_int_trade_data_table(db_path)
 ```

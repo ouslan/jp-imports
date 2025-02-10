@@ -1,4 +1,4 @@
-from ..dao.jp_imports_raw import create_trade_tables
+from .models import init_district_table, init_country_table, init_hts_table, init_sitc_table, init_naics_table, init_unit_table, init_trade_table, init_int_trade_data_table, init_jp_trade_data_table
 from tqdm import tqdm
 import polars as pl
 import requests
@@ -146,6 +146,9 @@ class DataPull:
                 "qty_2",
             )
         )  # .with_columns(pl.all().exclude("date").cast(pl.Int64))
+        
+        if "inttradedata" not in self.conn.list_tables():
+            init_int_trade_data_table(self.data_file)
         self.conn.insert("inttradedata", int_df.collect())
 
         logging.info("finished inserting data into the database")
@@ -338,26 +341,37 @@ class DataPull:
         )
 
         # Write to database
-        self.conn.insert("countrytable", country.collect())
-        logging.info("Inserted Country Table")
-
-        self.conn.insert("sitctable", sitc.collect())
-        logging.info("Inserted SITC Table")
-
-        self.conn.insert("htstable", hts.collect())
-        logging.info("Inserted HTS Table")
-
-        self.conn.insert("naicstable", naics.collect())
-        logging.info("Inserted NAICS Table")
-
-        self.conn.insert("districttable", distric.collect())
-        logging.info("Inserted District Table")
-
-        self.conn.insert("unittable", unit.collect())
-        logging.info("Inserted Unit Table")
-
-        self.conn.insert("jptradedata", jp_df.collect())
-        logging.info("Inserted JP Trade Data")
+        if "tradetable" not in self.conn.list_tables():
+            init_trade_table(self.data_file)
+            logging.info("Initialize the tradetable")
+        if "countrytable" not in self.conn.list_tables():
+            init_country_table(self.data_file)
+            self.conn.insert("countrytable", country.collect())
+            logging.info("Inserted Country Table")
+        if "sitctable" not in self.conn.list_tables():
+            init_sitc_table(self.data_file)
+            self.conn.insert("sitctable", sitc.collect())
+            logging.info("Inserted SITC Table")
+        if "htstable" not in self.conn.list_tables():
+            init_hts_table(self.data_file)
+            self.conn.insert("htstable", hts.collect())
+            logging.info("Inserted HTS Table")
+        if "naicstable" not in self.conn.list_tables():
+            init_naics_table(self.data_file)
+            self.conn.insert("naicstable", naics.collect())
+            logging.info("Inserted NAICS Table")
+        if "districttable" not in self.conn.list_tables():
+            init_district_table(self.data_file)
+            self.conn.insert("districttable", distric.collect())
+            logging.info("Inserted District Table")
+        if "unittable" not in self.conn.list_tables():
+            init_unit_table(self.data_file)  
+            self.conn.insert("unittable", unit.collect())
+            logging.info("Inserted Unit Table")
+        if "jptradedata" not in self.conn.list_tables():
+            init_jp_trade_data_table(self.data_file)
+            self.conn.insert("jptradedata", jp_df.collect())
+            logging.info("Inserted JP Trade Data")
         # os.remove(self.saving_dir + "raw/jp_instance.csv")
 
     def pull_census_hts(

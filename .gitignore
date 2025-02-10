@@ -173,4 +173,5 @@ data/*
 !/notebooks/*.qmd
 
 *.sqlite
-pull.py
+*.ddb
+*.wal
