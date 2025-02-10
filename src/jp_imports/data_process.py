@@ -86,9 +86,7 @@ class DataTrade(DataPull):
             start = times[0]
             end = times[1]
             df = self.conn.table("jptradedata")
-            df = df.filter(
-                (df.date.year() >= int(start)) & (df.date.year() <= int(end))
-            )
+            df = df.filter((df.date.year() >= start) & (df.date <= end))
         elif len(time.split("+")) == 1:
             df = self.conn.table("jptradedata")
             df = df.filter(df.date.year() == int(time))
@@ -191,12 +189,10 @@ class DataTrade(DataPull):
             start = times[0]
             end = times[1]
             df = self.conn.table("inttradedata")
-            df = df.filter(
-                (df.date.year() >= int(start)) & (df.date.year() <= int(end))
-            )
+            df = df.filter((df.date >= start) & (df.date <= end))
         elif len(time.split("+")) == 1:
             df = self.conn.table("inttradedata")
-            df = df.filter(df.date.year() == int(time))
+            df = df.filter(df.date == time)
         else:
             raise ValueError('Invalid time format. Use "date" or "start_date+end_date"')
 

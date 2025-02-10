@@ -1,12 +1,11 @@
 from src.jp_imports.data_process import DataTrade
-from src.jp_imports.data_pull import DataPull
-from dotenv import load_dotenv
 import os
 
-load_dotenv()
 
 def main() -> None:
-    d = DataProcess(str(os.environ.get("DATABASE_URL")))
-    print(d.process_jp_base())
+    d = DataTrade()
+    print(d.process_price().execute())
+
+
 if __name__ == "__main__":
     main()
