@@ -595,56 +595,58 @@ class DataTrade(DataPull):
         )
         df = df.mutate(
             pct_change_imports=ibis.cases(
-            (
-                df.prev_year_imports != 0,
-                (df.moving_price_imports - df.prev_year_imports) / df.prev_year_imports,
-            ),
-            else_=ibis.null()
+                (
+                    df.prev_year_imports != 0,
+                    (df.moving_price_imports - df.prev_year_imports)
+                    / df.prev_year_imports,
+                ),
+                else_=ibis.null(),
             ),
             pct_change_exports=ibis.cases(
-            (
-                df.prev_year_exports != 0,
-                (df.moving_price_exports - df.prev_year_exports) / df.prev_year_exports,
+                (
+                    df.prev_year_exports != 0,
+                    (df.moving_price_exports - df.prev_year_exports)
+                    / df.prev_year_exports,
+                ),
+                else_=(ibis.null()),
             ),
-            else_=(ibis.null())
-        
-            ))
+        )
         df = df.mutate(
             moving_import_rank=ibis.cases(
-            (
-                df.moving_price_imports.notnull(),
-                ibis.dense_rank().over(
-                    order_by=df.moving_price_imports, group_by=df.date
+                (
+                    df.moving_price_imports.notnull(),
+                    ibis.dense_rank().over(
+                        order_by=df.moving_price_imports, group_by=df.date
+                    ),
                 ),
-            ),
-            else_=(ibis.null())
+                else_=(ibis.null()),
             ),
             moving_export_rank=ibis.cases(
-            (
-                df.moving_price_exports.notnull(),
-                ibis.dense_rank().over(
-                    order_by=df.moving_price_exports, group_by=df.date
+                (
+                    df.moving_price_exports.notnull(),
+                    ibis.dense_rank().over(
+                        order_by=df.moving_price_exports, group_by=df.date
+                    ),
                 ),
-            ),
-            else_=(ibis.null())
+                else_=(ibis.null()),
             ),
             pct_imports_rank=ibis.cases(
-            (
-                df.pct_change_imports.notnull(),
-                ibis.dense_rank().over(
-                    order_by=df.pct_change_imports, group_by=df.date
+                (
+                    df.pct_change_imports.notnull(),
+                    ibis.dense_rank().over(
+                        order_by=df.pct_change_imports, group_by=df.date
+                    ),
                 ),
-            ),
-            else_=(ibis.null())
+                else_=(ibis.null()),
             ),
             pct_exports_rank=ibis.cases(
-            (
-                df.pct_change_exports.notnull(),
-                ibis.dense_rank().over(
-                    order_by=df.pct_change_exports, group_by=df.date
+                (
+                    df.pct_change_exports.notnull(),
+                    ibis.dense_rank().over(
+                        order_by=df.pct_change_exports, group_by=df.date
+                    ),
                 ),
-            ),
-            else_=(ibis.null())
+                else_=(ibis.null()),
             ),
         )
         return df
@@ -738,37 +740,36 @@ class DataTrade(DataPull):
         df = df.join(units, df.unit2_id == units.id).rename(unit_2="unit_code")
         df = df.mutate(
             conv_1=ibis.cases(
-            (df.unit_1 == "kg", df.qty_1 * 1),
-            (df.unit_1 == "l", df.qty_1 * 1),
-            (df.unit_1 == "doz", df.qty_1 / 0.756),
-            (df.unit_1 == "m3", df.qty_1 * 1560),
-            (df.unit_1 == "t", df.qty_1 * 907.185),
-            (df.unit_1 == "kts", df.qty_1 * 1),
-            (df.unit_1 == "pfl", df.qty_1 * 0.789),
-            (df.unit_1 == "gm", df.qty_1 * 0.001),
-            else_=(df.qty_1)
+                (df.unit_1 == "kg", df.qty_1 * 1),
+                (df.unit_1 == "l", df.qty_1 * 1),
+                (df.unit_1 == "doz", df.qty_1 / 0.756),
+                (df.unit_1 == "m3", df.qty_1 * 907.1847),
+                (df.unit_1 == "t", df.qty_1 * 907.1847),
+                (df.unit_1 == "kts", df.qty_1 * 1),
+                (df.unit_1 == "pfl", df.qty_1 * 0.789),
+                (df.unit_1 == "gm", df.qty_1 * 0.001),
+                else_=(df.qty_1),
             ),
             conv_2=ibis.cases(
-            (df.unit_2 == "kg", df.qty_2 * 1),
-            (df.unit_2 == "l", df.qty_2 * 1),
-            (df.unit_2 == "doz", df.qty_2 / 0.756),
-            (df.unit_2 == "m3", df.qty_2 * 1560),
-            (df.unit_2 == "t", df.qty_2 * 907.185),
-            (df.unit_2 == "kts", df.qty_2 * 1),
-            (df.unit_2 == "pfl", df.qty_2 * 0.789),
-            (df.unit_2 == "gm", df.qty_2 * 0.001),
-            else_=(df.qty_2)
+                (df.unit_2 == "kg", df.qty_2 * 1),
+                (df.unit_2 == "l", df.qty_2 * 1),
+                (df.unit_2 == "doz", df.qty_2 / 0.756),
+                (df.unit_2 == "m3", df.qty_2 * 907.1847),
+                (df.unit_2 == "t", df.qty_2 * 907.1847),
+                (df.unit_2 == "kts", df.qty_2 * 1),
+                (df.unit_2 == "pfl", df.qty_2 * 0.789),
+                (df.unit_2 == "gm", df.qty_2 * 0.001),
+                else_=(df.qty_2),
             ),
             qrt=ibis.cases(
-            ((df.date.month() >= 1) & (df.date.month() <= 3), 1),
-            ((df.date.month() >= 4) & (df.date.month() <= 8), 2),
-            ((df.date.month() >= 7) & (df.date.month() <= 9), 3),
-            ((df.date.month() >= 10) & (df.date.month() <= 12), 4),
-            else_=(0)
+                ((df.date.month() >= 1) & (df.date.month() <= 3), 1),
+                ((df.date.month() >= 4) & (df.date.month() <= 8), 2),
+                ((df.date.month() >= 7) & (df.date.month() <= 9), 3),
+                ((df.date.month() >= 10) & (df.date.month() <= 12), 4),
+                else_=(0),
             ),
             fiscal_year=ibis.cases(
-            (df.date.month() > 6, df.date.year() + 1),
-            else_=(df.date.year())
+                (df.date.month() > 6, df.date.year() + 1), else_=(df.date.year())
             ),
         )
         df = df.mutate(
