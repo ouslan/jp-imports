@@ -4,13 +4,14 @@ import duckdb
 def get_conn(db_path: str) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(db_path)
 
+
 def init_int_trade_data_table(db_path: str) -> None:
     conn = get_conn(db_path=db_path)
-    
+
     # Create sequence for primary keys
     conn.sql("DROP SEQUENCE IF EXISTS int_trade_data_sequence;")
     conn.sql("CREATE SEQUENCE int_trade_data_sequence START 1;")
-    
+
     # Create IntTradeData table
     conn.sql(
         """
@@ -29,13 +30,14 @@ def init_int_trade_data_table(db_path: str) -> None:
         """
     )
 
+
 def init_jp_trade_data_table(db_path: str) -> None:
     conn = get_conn(db_path=db_path)
-    
+
     # Create sequence for primary key
     conn.sql("DROP SEQUENCE IF EXISTS jp_trade_data_sequence;")
     conn.sql("CREATE SEQUENCE jp_trade_data_sequence START 1;")
-    
+
     # Create JPTradeData table
     conn.sql(
         """
@@ -59,6 +61,7 @@ def init_jp_trade_data_table(db_path: str) -> None:
         """
     )
 
+
 def init_country_table(db_path: str) -> None:
     conn = get_conn(db_path=db_path)
     conn.sql("DROP SEQUENCE IF EXISTS country_sequence;")
@@ -72,6 +75,7 @@ def init_country_table(db_path: str) -> None:
         );
         """
     )
+
 
 def init_hts_table(db_path: str) -> None:
     conn = get_conn(db_path=db_path)
@@ -90,6 +94,7 @@ def init_hts_table(db_path: str) -> None:
     )
     # conn.sql("INSERT INTO htstable VALUES(1, 'N/A', 'N/A', 'N/A', True)")
 
+
 def init_sitc_table(db_path: str) -> None:
     conn = get_conn(db_path=db_path)
     conn.sql("DROP SEQUENCE IF EXISTS sitc_sequence;")
@@ -105,6 +110,7 @@ def init_sitc_table(db_path: str) -> None:
         """
     )
 
+
 def init_naics_table(db_path: str) -> None:
     conn = get_conn(db_path=db_path)
     conn.sql("DROP SEQUENCE IF EXISTS naics_sequence;")
@@ -118,6 +124,7 @@ def init_naics_table(db_path: str) -> None:
         );
         """
     )
+
 
 def init_trade_table(db_path: str) -> None:
     conn = get_conn(db_path=db_path)
@@ -134,6 +141,7 @@ def init_trade_table(db_path: str) -> None:
     conn.sql("INSERT INTO tradetable VALUES (1, 'Imports')")
     conn.sql("INSERT INTO tradetable VALUES (2, 'Exports')")
 
+
 def init_district_table(db_path: str) -> None:
     conn = get_conn(db_path=db_path)
     conn.sql("DROP SEQUENCE IF EXISTS district_sequence;")
@@ -147,6 +155,7 @@ def init_district_table(db_path: str) -> None:
         );
         """
     )
+
 
 def init_unit_table(db_path: str) -> None:
     conn = get_conn(db_path=db_path)

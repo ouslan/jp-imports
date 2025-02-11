@@ -1,4 +1,14 @@
-from .models import init_district_table, init_country_table, init_hts_table, init_sitc_table, init_naics_table, init_unit_table, init_trade_table, init_int_trade_data_table, init_jp_trade_data_table
+from ..models import (
+    init_district_table,
+    init_country_table,
+    init_hts_table,
+    init_sitc_table,
+    init_naics_table,
+    init_unit_table,
+    init_trade_table,
+    init_int_trade_data_table,
+    init_jp_trade_data_table,
+)
 from tqdm import tqdm
 import polars as pl
 import requests
@@ -146,7 +156,7 @@ class DataPull:
                 "qty_2",
             )
         )  # .with_columns(pl.all().exclude("date").cast(pl.Int64))
-        
+
         if "inttradedata" not in self.conn.list_tables():
             init_int_trade_data_table(self.data_file)
         self.conn.insert("inttradedata", int_df.collect())
@@ -365,7 +375,7 @@ class DataPull:
             self.conn.insert("districttable", distric.collect())
             logging.info("Inserted District Table")
         if "unittable" not in self.conn.list_tables():
-            init_unit_table(self.data_file)  
+            init_unit_table(self.data_file)
             self.conn.insert("unittable", unit.collect())
             logging.info("Inserted Unit Table")
         if "jptradedata" not in self.conn.list_tables():
