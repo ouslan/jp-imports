@@ -1,4 +1,5 @@
 from ..data.data_process import DataTrade
+import altair as alt
 
 
 class DataViz(DataTrade):
@@ -7,5 +8,6 @@ class DataViz(DataTrade):
     ):
         super().__init__(saving_dir, database_url)
 
-    def gen_pie_chart(self, agg):
-        self.process_int_jp(types="country", agg=agg, time=)
+    def gen_pie_chart(self, time_frame: str):
+        df = self.process_int_jp(level="country", time_frame=time_frame)
+        return df
