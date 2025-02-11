@@ -184,4 +184,4 @@ if __name__ == "__main__":
 
 
 if __name__ == "__main__":
-    db_path = "data.duckdb"
+    db_path = "data.ddb"

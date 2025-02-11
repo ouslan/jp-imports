@@ -1,4 +1,5 @@
 from .data_pull import DataPull
+from dateutil.relativedelta import relativedelta
 import polars as pl
 import ibis
 import os
@@ -33,54 +34,55 @@ class DataTrade(DataPull):
 
     def process_int_jp(
         self,
-        types: str,
-        agg: str,
-        time: str = "",
-        agr: bool = False,
+        level: str,
+        time_frame: str,
+        datetime: str = "",
+        agriculture_filter: bool = False,
         group: bool = False,
-        update: bool = False,
-        filter: str = "",
+        level_filter: str = "",
     ) -> ibis.expr.types.relations.Table:
         """
         Process the data for Puerto Rico Statistics Institute provided to JP.
 
         Parameters
         ----------
-        time: str
+        time_frame: str
             Time period to process the data. The options are "yearly", "qrt", and "monthly".
-        types: str
+        level: str
             Type of data to process. The options are "total", "naics", "hs", and "country".
         group: bool
             Group the data by the classification. (Not implemented yet)
-        update: bool
-            Update the data from the source.
+        level_filter:
+            search and filter for the data for the given level
 
         Returns
         -------
-        pl.LazyFrame
-            Processed data. Requires df.collect() to view the data.
+        ibis.expr.types.relations.Table
+            Returns a lazy ibis table that can be further process. See the Ibis documentations
+            to see available outputs
         """
-        switch = [agg, types]
 
-        if "jptradedata" not in self.conn.list_tables() or update:
+        switch = [time_frame, level]
+
+        if "jptradedata" not in self.conn.list_tables():
             self.insert_int_jp(self.jp_data, self.agr_file)
         if int(self.conn.table("jptradedata").count().execute()) == 0:
             self.insert_int_jp(self.jp_data, self.agr_file)
-        if time == "":
+        if datetime == "":
             df = self.conn.table("jptradedata")
-        elif len(time.split("+")) == 2:
-            times = time.split("+")
+        elif len(datetime.split("+")) == 2:
+            times = datetime.split("+")
             start = times[0]
             end = times[1]
             df = self.conn.table("jptradedata")
-            df = df.filter((df.date.year() >= start) & (df.date <= end))
-        elif len(time.split("+")) == 1:
+            df = df.filter((df.date >= start) & (df.date <= end))
+        elif len(datetime.split("+")) == 1:
             df = self.conn.table("jptradedata")
-            df = df.filter(df.date.year() == int(time))
+            df = df.filter(df.date == datetime)
         else:
             raise ValueError('Invalid time format. Use "date" or "start_date+end_date"')
 
-        if agr:
+        if agriculture_filter:
             hts = (
                 self.conn.table("htstable")
                 .select("id", "agri_prod")
@@ -89,27 +91,27 @@ class DataTrade(DataPull):
             df = df.join(hts, df.hts_id == hts.agr_id)
             df = df.filter(df.agri_prod)
 
-        if types == "hts":
+        if level == "hts":
             hts_table = self.conn.table("htstable")
-            df_hts = hts_table.filter(hts_table.hts_code.startswith(filter))
+            df_hts = hts_table.filter(hts_table.hts_code.startswith(level_filter))
             if df_hts.execute().empty:
-                raise ValueError(f"Invalid HTS code: {filter}")
+                raise ValueError(f"Invalid HTS code: {level_filter}")
             hts_ids = df_hts["id"]
 
             df = df.filter(df["hts_id"].isin(hts_ids))
-        elif types == "naics":
+        elif level == "naics":
             naics_table = self.conn.table("naicstable")
-            df_naics = naics_table.filter(naics_table.naics_code.startswith(filter))
+            df_naics = naics_table.filter(naics_table.naics_code.startswith(level_filter))
             if df_naics.execute().empty:
-                raise ValueError(f"Invalid NAICS code: {filter}")
+                raise ValueError(f"Invalid NAICS code: {level_filter}")
             naics_ids = df_naics["id"]
 
             df = df.filter(df["naics_id"].isin(naics_ids))
-        elif types == "country":
+        elif level == "country":
             country_table = self.conn.table("countrytable")
-            df_country = country_table.filter(country_table.cty_code.startswith(filter))
+            df_country = country_table.filter(country_table.cty_code.startswith(level_filter))
             if df_country.execute().empty:
-                raise ValueError(f"Invalid Country code: {filter}")
+                raise ValueError(f"Invalid Country code: {level_filter}")
             country_ids = df_country["id"]
 
             df = df.filter(df["country_id"].isin(country_ids))
@@ -125,13 +127,12 @@ class DataTrade(DataPull):
 
     def process_int_org(
         self,
-        types: str,
-        agg: str,
-        time: str = "",
-        agr: bool = False,
+        level: str,
+        time_frame: str,
+        datetime: str = "",
+        agriculture_filter: bool = False,
         group: bool = False,
-        update: bool = False,
-        filter: str = "",
+        level_filter: str = "",
     ) -> ibis.expr.types.relations.Table:
         """
         Process the data from Puerto Rico Statistics Institute.
@@ -159,31 +160,31 @@ class DataTrade(DataPull):
         pl.LazyFrame
             Processed data. Requires df.collect() to view the data.
         """
-        switch = [agg, types]
+        switch = [time_frame, level]
 
-        if types == "naics":
+        if time_frame == "naics":
             raise ValueError(
                 "NAICS data is not available for Puerto Rico Statistics Institute."
             )
-        if "inttradedata" not in self.conn.list_tables() or update:
+        if "inttradedata" not in self.conn.list_tables():
             self.insert_int_org(self.org_data)
         if int(self.conn.table("inttradedata").count().execute()) == 0:
             self.insert_int_org(self.org_data)
-        if time == "":
+        if datetime == "":
             df = self.conn.table("inttradedata")
-        elif len(time.split("+")) == 2:
-            times = time.split("+")
+        elif len(datetime.split("+")) == 2:
+            times = datetime.split("+")
             start = times[0]
             end = times[1]
             df = self.conn.table("inttradedata")
             df = df.filter((df.date >= start) & (df.date <= end))
-        elif len(time.split("+")) == 1:
+        elif len(datetime.split("+")) == 1:
             df = self.conn.table("inttradedata")
-            df = df.filter(df.date == time)
+            df = df.filter(df.date == datetime)
         else:
             raise ValueError('Invalid time format. Use "date" or "start_date+end_date"')
 
-        if agr:
+        if agriculture_filter:
             hts = (
                 self.conn.table("htstable")
                 .select("id", "agri_prod")
@@ -192,7 +193,7 @@ class DataTrade(DataPull):
             df = df.join(hts, df.hts_id == hts.agr_id)
             df = df.filter(df.agri_prod)
 
-        if types == "hts":
+        if level == "hts":
             hts_table = self.conn.table("htstable")
             df_hts = hts_table.filter(hts_table.hts_code.startswith(filter))
             if df_hts.execute().empty:
@@ -200,7 +201,7 @@ class DataTrade(DataPull):
             hts_ids = df_hts["id"]
 
             df = df.filter(df["hts_id"].isin(hts_ids))
-        elif types == "country":
+        elif level == "country":
             country_table = self.conn.table("countrytable")
             df_country = country_table.filter(country_table.cty_code.startswith(filter))
             if df_country.execute().empty:
@@ -543,16 +544,15 @@ class DataTrade(DataPull):
                 raise ValueError(f"Invalid switch: {switch}")
 
     def process_price(
-        self, agr: bool = False, filter: str = ""
+        self, agriculture_filter: bool = False
     ) -> ibis.expr.types.relations.Table:
-        # max_date = self.conn.table("inttradedata").date.max().execute()
-        # start_date = max_date - relativedelta(years=1, months=1)
+        max_date = self.conn.table("inttradedata").date.max().execute()
+        start_date = max_date - relativedelta(years=1, months=1)
         df = self.process_int_org(
-            agg="monthly",
-            types="hts",
-            agr=agr,
-            filter=filter,
-            # time=f"{start_date}+{max_date}",
+            time_frame="monthly",
+            level="hts",
+            agriculture_filter=agriculture_filter,
+            datetime=f"{start_date}+{max_date}",
         )
         hts = self.conn.table("htstable").select("id", "hts_code").rename(hts_id="id")
         df = df.join(hts, "hts_id", how="left")
