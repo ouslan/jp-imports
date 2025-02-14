@@ -13,7 +13,7 @@ class DataTrade(DataPull):
     def __init__(
         self,
         saving_dir: str = "data/",
-        database_url: str = "data.ddb",
+        database_file: str = "data.ddb",
         log_file: str = "data_process.log",
     ):
         """
@@ -30,7 +30,7 @@ class DataTrade(DataPull):
         -------
         None
         """
-        super().__init__(saving_dir, database_url, log_file)
+        super().__init__(saving_dir, database_file, log_file)
         self.jp_data = os.path.join(self.saving_dir, "raw/jp_data.parquet")
         self.org_data = os.path.join(self.saving_dir, "raw/org_data.parquet")
         self.agr_file = os.path.join(self.saving_dir, "external/code_agr.json")
