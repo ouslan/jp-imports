@@ -29,6 +29,7 @@ class DataPull:
         self,
         saving_dir: str = "data/",
         database_url: str = "duckdb:///data.ddb",
+        log_file: str = "data_process.log",
     ):
         self.database_url = database_url
         self.saving_dir = saving_dir
@@ -39,7 +40,7 @@ class DataPull:
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
             datefmt="%d-%b-%y %H:%M:%S",
-            filename="data_process.log",
+            filename=log_file,
         )
         # Check if the saving directory exists
         if not os.path.exists(self.saving_dir + "raw"):
