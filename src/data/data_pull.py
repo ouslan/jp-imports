@@ -28,12 +28,11 @@ class DataPull:
     def __init__(
         self,
         saving_dir: str = "data/",
-        database_url: str = "duckdb:///data.ddb",
+        database_file: str = "data.ddb",
         log_file: str = "data_process.log",
     ):
-        self.database_url = database_url
         self.saving_dir = saving_dir
-        self.data_file = self.database_url.split("///")[1]
+        self.data_file = database_file
         self.conn = ibis.duckdb.connect(f"{self.data_file}")
 
         logging.basicConfig(

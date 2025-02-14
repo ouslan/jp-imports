@@ -13,7 +13,7 @@ class DataTrade(DataPull):
     def __init__(
         self,
         saving_dir: str = "data/",
-        database_url: str = "duckdb:///data.ddb",
+        database_url: str = "data.ddb",
         log_file: str = "data_process.log",
     ):
         """
